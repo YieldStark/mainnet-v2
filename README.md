@@ -1,8 +1,29 @@
-# Welcome to React Router!
+# YieldStark (mainnet-v2)
 
-A modern, production-ready template for building full-stack React applications using React Router.
+React Router v7 app for YieldStark — all-in-one WBTC on Starknet mainnet.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+## What we've done
+
+- **App shell & routing** — React Router 7 routes, layout with sidebar/header, client-only app to avoid SSR with wallet/RPC.  
+  → [`app/root.tsx`](app/root.tsx), [`app/routes.ts`](app/routes.ts), [`app/routes/`](app/routes/), [`app/components/layout/`](app/components/layout/)
+
+- **RPC & network** — dRPC and Nethermind only (no Alchemy); default RPC `https://starknet.drpc.org`; optional Nethermind.  
+  → [`app/stores/network-store.ts`](app/stores/network-store.ts), [`app/lib/utils/rpc.ts`](app/lib/utils/rpc.ts), [`app/lib/config.ts`](app/lib/config.ts)
+
+- **WBTC balance** — Fetch ERC20 balance via RPC `balance_of`; wallet store exposes `totalBalance` and `updateBalances`.  
+  → [`app/lib/utils/fetchWbtcBalance.ts`](app/lib/utils/fetchWbtcBalance.ts), [`app/lib/u256.ts`](app/lib/u256.ts), [`app/stores/wallet-store.ts`](app/stores/wallet-store.ts)
+
+- **Explorer** — Voyager everywhere (links and any explorer URL config).  
+  → [`app/stores/network-store.ts`](app/stores/network-store.ts), [`app/lib/config.ts`](app/lib/config.ts), [`app/components/ui/TokenSelectModal.tsx`](app/components/ui/TokenSelectModal.tsx), deposit/withdraw modals
+
+- **Swap (AVNU)** — Verified tokens from AVNU; get quotes and execute swap with 0.6% integrator fees; sell/buy token selectors; success state and balance refresh (no auto-redirect to explorer).  
+  → [`app/lib/avnu-swap.ts`](app/lib/avnu-swap.ts), [`app/routes/swap.tsx`](app/routes/swap.tsx), [`app/components/ui/TokenSelectModal.tsx`](app/components/ui/TokenSelectModal.tsx), [`app/lib/utils/parseUnits.ts`](app/lib/utils/parseUnits.ts), [`app/lib/utils/fetchTokenBalance.ts`](app/lib/utils/fetchTokenBalance.ts)
+
+- **Integrator fee recipient** — Set in AVNU swap (e.g. `0x04b950...`).  
+  → [`app/lib/avnu-swap.ts`](app/lib/avnu-swap.ts)
+
+- **Constants** — Mainnet token addresses (WBTC, USDC, ETH).  
+  → [`app/lib/utils/Constants.ts`](app/lib/utils/Constants.ts)
 
 ## Features
 

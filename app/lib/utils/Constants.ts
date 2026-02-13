@@ -1,0 +1,182 @@
+// Strk
+const universalStrkAddress =
+  "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d" as const;
+
+const sepoliaMainnetStrkClassHash =
+  "0x04ad3c1dc8413453db314497945b6903e1c766495a1e60492d44da9c2a986e4b" as const;
+
+const devnetStrkClassHash =
+  "0x046ded64ae2dead6448e247234bab192a9c483644395b66f2155f2614e5804b0" as const;
+
+const universalErc20Abi = [
+  {
+    type: "impl",
+    name: "ERC20Impl",
+    interface_name: "openzeppelin::token::erc20::interface::IERC20",
+  },
+  {
+    name: "openzeppelin::token::erc20::interface::IERC20",
+    type: "interface",
+    items: [
+      {
+        name: "name",
+        type: "function",
+        inputs: [],
+        outputs: [{ type: "core::felt252" }],
+        state_mutability: "view",
+      },
+      {
+        name: "symbol",
+        type: "function",
+        inputs: [],
+        outputs: [{ type: "core::felt252" }],
+        state_mutability: "view",
+      },
+      {
+        name: "decimals",
+        type: "function",
+        inputs: [],
+        outputs: [{ type: "core::integer::u8" }],
+        state_mutability: "view",
+      },
+      {
+        name: "total_supply",
+        type: "function",
+        inputs: [],
+        outputs: [{ type: "core::integer::u256" }],
+        state_mutability: "view",
+      },
+      {
+        name: "balance_of",
+        type: "function",
+        inputs: [
+          {
+            name: "account",
+            type: "core::starknet::contract_address::ContractAddress",
+          },
+        ],
+        outputs: [{ type: "core::integer::u256" }],
+        state_mutability: "view",
+      },
+      {
+        name: "allowance",
+        type: "function",
+        inputs: [
+          {
+            name: "owner",
+            type: "core::starknet::contract_address::ContractAddress",
+          },
+          {
+            name: "spender",
+            type: "core::starknet::contract_address::ContractAddress",
+          },
+        ],
+        outputs: [{ type: "core::integer::u256" }],
+        state_mutability: "view",
+      },
+      {
+        name: "transfer",
+        type: "function",
+        inputs: [
+          {
+            name: "recipient",
+            type: "core::starknet::contract_address::ContractAddress",
+          },
+          { name: "amount", type: "core::integer::u256" },
+        ],
+        outputs: [{ type: "core::bool" }],
+        state_mutability: "external",
+      },
+      {
+        name: "transfer_from",
+        type: "function",
+        inputs: [
+          {
+            name: "sender",
+            type: "core::starknet::contract_address::ContractAddress",
+          },
+          {
+            name: "recipient",
+            type: "core::starknet::contract_address::ContractAddress",
+          },
+          { name: "amount", type: "core::integer::u256" },
+        ],
+        outputs: [{ type: "core::bool" }],
+        state_mutability: "external",
+      },
+      {
+        name: "approve",
+        type: "function",
+        inputs: [
+          {
+            name: "spender",
+            type: "core::starknet::contract_address::ContractAddress",
+          },
+          { name: "amount", type: "core::integer::u256" },
+        ],
+        outputs: [{ type: "core::bool" }],
+        state_mutability: "external",
+      },
+    ],
+  },
+  {
+    name: "ERC20CamelOnlyImpl",
+    type: "impl",
+    interface_name: "openzeppelin::token::erc20::interface::IERC20CamelOnly",
+  },
+  {
+    type: "interface",
+    name: "openzeppelin::token::erc20::interface::IERC20CamelOnly",
+    items: [
+      {
+        name: "totalSupply",
+        type: "function",
+        inputs: [],
+        outputs: [{ type: "core::integer::u256" }],
+        state_mutability: "view",
+      },
+      {
+        name: "balanceOf",
+        type: "function",
+        inputs: [
+          {
+            name: "account",
+            type: "core::starknet::contract_address::ContractAddress",
+          },
+        ],
+        outputs: [{ type: "core::integer::u256" }],
+        state_mutability: "view",
+      },
+      {
+        name: "transferFrom",
+        type: "function",
+        inputs: [
+          {
+            name: "sender",
+            type: "core::starknet::contract_address::ContractAddress",
+          },
+          {
+            name: "recipient",
+            type: "core::starknet::contract_address::ContractAddress",
+          },
+          { name: "amount", type: "core::integer::u256" },
+        ],
+        outputs: [{ type: "core::bool" }],
+        state_mutability: "external",
+      },
+    ],
+  },
+] as const;
+
+export const LAST_CONNECTED_TIME_LOCALSTORAGE_KEY = "lastConnectedTime";
+
+// Mainnet token addresses (Starknet)
+export const WBTC_ADDRESS =
+  "0x03Fe2b97C1Fd336E750087D68B9b867997Fd64a2661fF3ca5A7C771641e8e7AC" as const;
+export const ETH_ADDRESS =
+  "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7" as const;
+export const USDC_ADDRESS =
+  "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8" as const;
+
+// Placeholder for mainnet vault - replace with actual address
+export const VWBTC_ADDRESS = "" as const;

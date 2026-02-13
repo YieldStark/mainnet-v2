@@ -1,13 +1,16 @@
+import { Navigate } from "react-router";
 import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
+    { title: "YieldStark - DeFi Yield Optimization on Starknet" },
+    {
+      name: "description",
+      content: "Optimize your DeFi yields with YieldStark's intelligent agent on Starknet",
+    },
   ];
 }
 
 export default function Home() {
-  return <Welcome />;
+  return <Navigate to="/dashboard" replace />;
 }
