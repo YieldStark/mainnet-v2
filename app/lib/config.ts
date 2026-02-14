@@ -1,5 +1,15 @@
-// Default mainnet RPC: dRPC (use network store for switching dRPC / Nethermind)
-const getMainnetRpcUrl = () => 'https://starknet.drpc.org'
+// Available Mainnet RPC Providers
+export const RPC_PROVIDERS = {
+  LAVA: 'https://rpc.starknet.lava.build',
+  INFURA: 'https://starknet-mainnet.infura.io/v3/public',
+  DRPC: 'https://starknet.drpc.org',
+  NETHERMIND: 'https://free-rpc.nethermind.io/mainnet-juno',
+  BLAST: 'https://starknet-mainnet.public.blastapi.io', // DEPRECATED: Service shut down
+  ALCHEMY: 'https://starknet-mainnet.g.alchemy.com/v2/demo', // Replace 'demo' with your API key
+} as const;
+
+// Default mainnet RPC: Lava (fast public endpoint)
+const getMainnetRpcUrl = () => RPC_PROVIDERS.LAVA;
 
 // Starknet Configuration - This will be dynamically set based on network selection
 export const STARKNET_CONFIG = {

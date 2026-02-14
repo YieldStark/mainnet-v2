@@ -12,15 +12,17 @@ export interface NetworkConfig {
   isTestnet: boolean
 }
 
+const LAVA_RPC_URL = 'https://rpc.starknet.lava.build'
+const INFURA_RPC_URL = 'https://starknet-mainnet.infura.io/v3/public'
 const DRPC_RPC_URL = 'https://starknet.drpc.org'
 const NETHERMIND_RPC_URL = 'https://free-rpc.nethermind.io/mainnet-juno'
 
 export const SUPPORTED_NETWORKS: NetworkConfig[] = [
   {
-    id: 'mainnet-drpc',
-    name: 'Starknet Mainnet (dRPC)',
+    id: 'mainnet-lava',
+    name: 'Starknet Mainnet (Lava)',
     chain: mainnet,
-    rpcUrl: DRPC_RPC_URL,
+    rpcUrl: LAVA_RPC_URL,
     explorerUrl: 'https://voyager.online',
     isTestnet: false,
   },
@@ -29,6 +31,14 @@ export const SUPPORTED_NETWORKS: NetworkConfig[] = [
     name: 'Starknet Mainnet (Nethermind)',
     chain: mainnet,
     rpcUrl: NETHERMIND_RPC_URL,
+    explorerUrl: 'https://voyager.online',
+    isTestnet: false,
+  },
+  {
+    id: 'mainnet-drpc',
+    name: 'Starknet Mainnet (dRPC)',
+    chain: mainnet,
+    rpcUrl: DRPC_RPC_URL,
     explorerUrl: 'https://voyager.online',
     isTestnet: false,
   },
@@ -62,23 +72,26 @@ export const useNetworkStore = create<NetworkStore>()(
     }),
     {
       name: 'network-storage',
-      version: 1,
+      version: 3,
       partialize: (state) => ({ currentNetwork: state.currentNetwork }),
       migrate: (persistedState) => {
         const state = persistedState as { currentNetwork?: NetworkConfig }
         const rpc = state?.currentNetwork?.rpcUrl ?? ''
         const isOldRpc =
-          rpc.includes('blastapi') ||
-          rpc.includes('alchemy.com')
+          rpc.includes('blastapi.io') ||
+          rpc.includes('alchemy.com') ||
+          rpc.includes('nethermind.io')
         const isOldMainnetId =
-          state?.currentNetwork?.id === 'mainnet'
+          state?.currentNetwork?.id === 'mainnet' ||
+          state?.currentNetwork?.id === 'mainnet-nethermind' ||
+          state?.currentNetwork?.id === 'mainnet-blast'
         if (isOldRpc || isOldMainnetId) {
-          const mainnetDrpc = SUPPORTED_NETWORKS[0]
+          const mainnetLava = SUPPORTED_NETWORKS[0] // Now Lava RPC
           return {
             ...state,
             currentNetwork: isOldRpc
-              ? { ...state.currentNetwork, rpcUrl: DRPC_RPC_URL, id: mainnetDrpc.id, name: mainnetDrpc.name }
-              : mainnetDrpc,
+              ? { ...state.currentNetwork, rpcUrl: LAVA_RPC_URL, id: mainnetLava.id, name: mainnetLava.name }
+              : mainnetLava,
           }
         }
         return state

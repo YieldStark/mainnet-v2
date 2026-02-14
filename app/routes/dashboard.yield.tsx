@@ -1,22 +1,44 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, Info } from "lucide-react";
+import { TrendingUp, Info, RefreshCw } from "lucide-react";
 import { VESU_LENDING_POOLS, type VesuPool } from "~/lib/services/vesu";
 import VesuLendModal from "~/components/ui/VesuLendModal";
 import { useWalletStore } from "~/providers/wallet-store-provider";
 import { useAccount } from "@starknet-react/core";
 import toast from "react-hot-toast";
+import { useVesuPoolData } from "~/hooks/useVesuPoolData";
 
 export default function YieldPage() {
   const [selectedPool, setSelectedPool] = useState<VesuPool | null>(null);
   const [isLendModalOpen, setIsLendModalOpen] = useState(false);
   const { account } = useAccount();
   const isConnected = useWalletStore((state) => state.isConnected);
+  const { poolsData, isLoading, error } = useVesuPoolData();
   
   // Mock balances - these should be fetched from wallet
   const [balances, setBalances] = useState({
     WBTC: "0.0",
     USDC: "0.0",
   });
+
+  // Merge static pool config with dynamic data
+  const getEnrichedPools = () => {
+    return VESU_LENDING_POOLS.map((pool) => {
+      const liveData = poolsData.find((p) => 
+        pool.poolAddress.toLowerCase() === p.poolAddress.toLowerCase()
+      );
+      
+      return {
+        ...pool,
+        apy: liveData?.apy || pool.apy,
+        tvl: liveData?.tvl || pool.tvl,
+        utilization: liveData?.utilization,
+        supplyAPY: liveData?.supplyAPY,
+        borrowAPY: liveData?.borrowAPY,
+      };
+    });
+  };
+
+  const enrichedPools = getEnrichedPools();
 
   const handleOpenLendModal = (pool: VesuPool) => {
     if (!isConnected) {
@@ -48,17 +70,29 @@ export default function YieldPage() {
     }
   };
 
-  const wbtcPools = VESU_LENDING_POOLS.filter((pool) => pool.asset === "WBTC");
-  const usdcPools = VESU_LENDING_POOLS.filter((pool) => pool.asset === "USDC");
+  const wbtcPools = enrichedPools.filter((pool) => pool.asset === "WBTC");
+  const usdcPools = enrichedPools.filter((pool) => pool.asset === "USDC");
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-[#101D22] rounded-4xl p-6">
-        <h1 className="text-3xl font-medium text-white mb-2">Yield</h1>
-        <p className="text-gray-400">
-          Earn yield by lending your assets to Vesu protocol pools
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-medium text-white mb-2">Yield</h1>
+            <p className="text-gray-400">
+              Earn yield by lending your assets to Vesu protocol pools
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {isLoading && (
+              <RefreshCw className="animate-spin text-[#97FCE4]" size={20} />
+            )}
+            {!isLoading && poolsData.length > 0 && (
+              <span className="text-sm text-[#97FCE4]">● Live TVL</span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Info Banner */}
@@ -70,9 +104,9 @@ export default function YieldPage() {
               About Vesu Lending
             </h3>
             <p className="text-sm text-gray-300">
-              Vesu is Starknet's most trusted lending market. By depositing your
-              assets, you earn yield from borrowers while maintaining liquidity
-              through vTokens (ERC-4626 vault tokens).
+              Vesu is Starknet's most trusted lending market. TVL data is fetched live from blockchain.
+              APY rates are estimates based on typical pool performance. Deposit your assets to earn yield
+              from borrowers while maintaining liquidity through vTokens (ERC-4626 vault tokens).
             </p>
           </div>
         </div>
@@ -169,9 +203,17 @@ function PoolCard({ pool, onDeposit }: PoolCardProps) {
 
       <p className="text-sm text-gray-400 mb-4">{pool.description}</p>
 
-      <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
-        <span className="text-sm text-gray-400">Total Value Locked</span>
-        <span className="text-sm font-medium text-white">{pool.tvl}</span>
+      <div className="space-y-2 mb-4 pb-4 border-b border-gray-800">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-400">Total Value Locked</span>
+          <span className="text-sm font-medium text-white">{pool.tvl}</span>
+        </div>
+        {pool.utilization && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-400">Utilization</span>
+            <span className="text-sm font-medium text-white">{pool.utilization}</span>
+          </div>
+        )}
       </div>
 
       <button

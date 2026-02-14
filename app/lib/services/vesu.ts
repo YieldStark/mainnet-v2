@@ -44,6 +44,10 @@ export interface VesuPool {
   tvl: string;
   description: string;
   riskLevel: "Low" | "Medium" | "High";
+  // Optional live data fields
+  utilization?: string;
+  supplyAPY?: string;
+  borrowAPY?: string;
 }
 
 // Available Vesu pools for lending
