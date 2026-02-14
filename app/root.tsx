@@ -50,6 +50,8 @@ function ClientOnlyApp({ children }: { children: React.ReactNode }) {
 }
 
 export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: "/brand/yieldstark.jpg", type: "image/jpeg" },
+  { rel: "apple-touch-icon", href: "/brand/yieldstark.jpg" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
@@ -64,6 +66,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>YieldStark - Starknet Yield Platform</title>
+        <meta name="description" content="Earn yield on your crypto assets with YieldStark on Starknet" />
         <Meta />
         <Links />
       </head>

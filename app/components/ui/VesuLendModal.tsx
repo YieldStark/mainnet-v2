@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import type { VesuPool } from "~/lib/services/vesu";
 
@@ -27,6 +27,12 @@ export default function VesuLendModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
   const [currentMode, setCurrentMode] = useState<"deposit" | "withdraw">(mode);
+
+  // Update current mode when mode prop changes
+  useEffect(() => {
+    setCurrentMode(mode);
+    setAmount(""); // Reset amount when switching modes
+  }, [mode, isOpen]);
 
   if (!isOpen || !pool) return null;
 

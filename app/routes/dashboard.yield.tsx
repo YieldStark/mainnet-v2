@@ -303,6 +303,9 @@ export default function YieldPage() {
         { id: "deposit-status", duration: 5000 }
       );
 
+      // Wait a moment for blockchain to update
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       // Refresh balances (reuse rpcUrl from line 190)
       const [wbtcBalance, usdcBalance] = await Promise.all([
         fetchTokenBalance(
@@ -439,6 +442,9 @@ export default function YieldPage() {
         </div>,
         { id: "withdraw-status", duration: 5000 }
       );
+
+      // Wait a moment for blockchain to update
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Refresh balances
       const rpcUrl = currentNetwork.rpcUrl;
