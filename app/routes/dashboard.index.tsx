@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Route } from "./+types/dashboard.index";
 import AgentPerformance from "~/components/dashboard/AgentPerformance";
 import CurrentPositions from "~/components/dashboard/CurrentPositions";
+import VesuPositions from "~/components/dashboard/VesuPositions";
 import DepositModal from "~/components/ui/DepositModal";
 import WithdrawModal from "~/components/ui/WithdrawModal";
 import { useWalletStore } from "~/providers/wallet-store-provider";
@@ -130,6 +131,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <VesuPositions key={`vesu-${refreshKey}`} />
 
       <CurrentPositions key={`positions-${refreshKey}`} />
 

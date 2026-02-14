@@ -18,7 +18,10 @@ export async function fetchTokenBalance(
   decimals: number
 ): Promise<string> {
   const address = normalizeAddress(accountAddress)
-  if (!address) return '0'
+  if (!address) {
+    console.warn('fetchTokenBalance: No address provided')
+    return '0'
+  }
 
   try {
     const provider = new RpcProvider({ nodeUrl: rpcUrl })
@@ -33,15 +36,25 @@ export async function fetchTokenBalance(
       : (raw as { result?: string[] })?.result
 
     if (!Array.isArray(result) || result.length < 2) {
+      console.warn('fetchTokenBalance: Invalid result format', { result, tokenAddress, address })
       return '0'
     }
 
     const [low, high] = result
-    return uint256ToDecimalString(
+    const balance = uint256ToDecimalString(
       { low: low ?? '0', high: high ?? '0' },
       decimals
     )
-  } catch {
+    
+    console.log(`fetchTokenBalance success: ${balance} (token: ${tokenAddress.slice(0, 10)}...)`)
+    return balance
+  } catch (error) {
+    console.error('fetchTokenBalance error:', {
+      error,
+      tokenAddress,
+      accountAddress: address,
+      rpcUrl
+    })
     return '0'
   }
 }
