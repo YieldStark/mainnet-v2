@@ -1,108 +1,152 @@
-# YieldStark (mainnet-v2)
+# YieldStark V2 (Mainnet)
 
-React Router v7 app for YieldStark — all-in-one WBTC on Starknet mainnet.
-
-## What we've done
-
-- **App shell & routing** — React Router 7 routes, layout with sidebar/header, client-only app to avoid SSR with wallet/RPC.  
-  → [`app/root.tsx`](app/root.tsx), [`app/routes.ts`](app/routes.ts), [`app/routes/`](app/routes/), [`app/components/layout/`](app/components/layout/)
-
-- **RPC & network** — dRPC and Nethermind only (no Alchemy); default RPC `https://starknet.drpc.org`; optional Nethermind.  
-  → [`app/stores/network-store.ts`](app/stores/network-store.ts), [`app/lib/utils/rpc.ts`](app/lib/utils/rpc.ts), [`app/lib/config.ts`](app/lib/config.ts)
-
-- **WBTC balance** — Fetch ERC20 balance via RPC `balance_of`; wallet store exposes `totalBalance` and `updateBalances`.  
-  → [`app/lib/utils/fetchWbtcBalance.ts`](app/lib/utils/fetchWbtcBalance.ts), [`app/lib/u256.ts`](app/lib/u256.ts), [`app/stores/wallet-store.ts`](app/stores/wallet-store.ts)
-
-- **Explorer** — Voyager everywhere (links and any explorer URL config).  
-  → [`app/stores/network-store.ts`](app/stores/network-store.ts), [`app/lib/config.ts`](app/lib/config.ts), [`app/components/ui/TokenSelectModal.tsx`](app/components/ui/TokenSelectModal.tsx), deposit/withdraw modals
-
-- **Swap (AVNU)** — Verified tokens from AVNU; get quotes and execute swap with 0.6% integrator fees; sell/buy token selectors; success state and balance refresh (no auto-redirect to explorer).  
-  → [`app/lib/avnu-swap.ts`](app/lib/avnu-swap.ts), [`app/routes/swap.tsx`](app/routes/swap.tsx), [`app/components/ui/TokenSelectModal.tsx`](app/components/ui/TokenSelectModal.tsx), [`app/lib/utils/parseUnits.ts`](app/lib/utils/parseUnits.ts), [`app/lib/utils/fetchTokenBalance.ts`](app/lib/utils/fetchTokenBalance.ts)
-
-- **Integrator fee recipient** — Set in AVNU swap (e.g. `0x04b950...`).  
-  → [`app/lib/avnu-swap.ts`](app/lib/avnu-swap.ts)
-
-- **Constants** — Mainnet token addresses (WBTC, USDC, ETH).  
-  → [`app/lib/utils/Constants.ts`](app/lib/utils/Constants.ts)
+React Router v7 app for YieldStark — DeFi yield optimization platform on Starknet.
 
 ## Features
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+- 🔄 **Cross-Protocol Swaps**: AVNU integration with 0.6% integrator fees
+- 💰 **Vesu Lending**: Real-time TVL, APY, and utilization data
+- 💳 **Wallet Integration**: Argent X and Braavos support
+- 📊 **Real-time Data**: Live blockchain queries via backend RPC proxy
+- 🎯 **4 Lending Pools**: Re7 xBTC, USDC Core, USDC Prime, USDC Stable
 
-## Getting Started
+## Tech Stack
 
-### Installation
+- **Framework**: React Router v7
+- **Blockchain**: Starknet Mainnet
+- **Wallet**: Starknet React
+- **Lending**: Vesu Protocol
+- **Swaps**: AVNU Aggregator
+- **Styling**: Tailwind CSS
+- **State**: Zustand
 
-Install the dependencies:
+## Quick Start
 
 ```bash
+# Install dependencies
 npm install
-```
 
-### Development
-
-Start the development server with HMR:
-
-```bash
+# Start development server
 npm run dev
+
+# Open http://localhost:5173
 ```
 
-Your application will be available at `http://localhost:5173`.
+## Documentation
+
+- **[Vesu Integration Guide](docs/VESU_INTEGRATION.md)** - Complete lending integration docs
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+
+## Key Implementations
+
+### Vesu Lending Integration
+- **Real-time TVL**: From vToken `total_assets()`
+- **Dynamic APY**: Calculated from on-chain utilization
+- **Auto-refresh**: Updates every 30 seconds
+- **4 Pools**: WBTC and USDC lending markets
+
+### Backend RPC Proxy
+- Route: `/api/rpc`
+- Bypasses CORS for browser-based blockchain queries
+- Supports all Starknet RPC methods
+
+### Network Configuration
+- Default RPC: Lava Network (public, free)
+- Alternatives: Infura, dRPC
+- Configure in `app/lib/config.ts`
+
+## Project Structure
+
+```
+app/
+├── components/        # React components
+│   ├── ui/           # Modals, cards, etc.
+│   └── dashboard/    # Dashboard widgets
+├── lib/
+│   ├── abi/          # Contract ABIs
+│   ├── services/     # Vesu, AVNU integrations
+│   └── utils/        # Helpers
+├── routes/
+│   ├── api.rpc.ts    # Backend RPC proxy
+│   └── dashboard.*.tsx # Dashboard pages
+├── stores/           # Zustand stores
+└── hooks/            # Custom hooks
+
+docs/                 # Documentation
+```
+
+## Development
+
+### Scripts
+- `npm run dev` - Development server
+- `npm run build` - Production build
+- `npm run typecheck` - Type checking
+
+### RPC Providers
+
+Edit `app/lib/config.ts` to switch:
+```typescript
+const getMainnetRpcUrl = () => RPC_PROVIDERS.LAVA; // or INFURA, DRPC
+```
+
+Available:
+- **Lava**: `https://rpc.starknet.lava.build`
+- **Infura**: `https://starknet-mainnet.infura.io/v3/public`
+- **dRPC**: `https://starknet.drpc.org`
+
+## Vesu Pools
+
+| Pool | TVL Source | APY Calculation |
+|------|-----------|----------------|
+| **Re7 xBTC** | vToken contract | Utilization-based lending curve |
+| **Re7 USDC Core** | vToken contract | Utilization-based lending curve |
+| **Re7 USDC Prime** | vToken contract | Utilization-based lending curve |
+| **Re7 USDC Stable** | vToken contract | Utilization-based lending curve |
 
 ## Building for Production
-
-Create a production build:
 
 ```bash
 npm run build
 ```
 
+Outputs to `build/` directory:
+- `build/client/` - Static assets
+- `build/server/` - Server-side code
+
 ## Deployment
 
-### Docker Deployment
-
-To build and run using Docker:
-
-```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
-```
-
-The containerized application can be deployed to any platform that supports Docker, including:
-
+Compatible with:
+- Docker
 - AWS ECS
 - Google Cloud Run
 - Azure Container Apps
-- Digital Ocean App Platform
 - Fly.io
 - Railway
+- Vercel
+- Netlify
 
-### DIY Deployment
+See [React Router deployment docs](https://reactrouter.com/how-to/deployment) for details.
 
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
+## Roadmap
 
-Make sure to deploy the output of `npm run build`
+- [x] Vesu lending with real-time data
+- [x] AVNU swap integration
+- [x] Backend RPC proxy
+- [ ] Deposit/Withdraw execution
+- [ ] User position tracking
+- [ ] Historical APY charts
+- [ ] Cross-chain bridge
+- [ ] Mobile app
 
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
+## Support
 
-## Styling
+- **Docs**: See `/docs` folder
+- **Issues**: GitHub Issues
 
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
+## License
+
+MIT License
 
 ---
 
-Built with ❤️ using React Router.
+Built with ❤️ on Starknet

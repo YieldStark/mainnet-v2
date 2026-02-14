@@ -28,6 +28,17 @@ export const VESU_POOL_ABI = [
     outputs: [],
     state_mutability: "external",
   },
+  {
+    type: "function",
+    name: "asset_config",
+    inputs: [
+      { name: "asset", type: "core::starknet::contract_address::ContractAddress" },
+    ],
+    outputs: [
+      { type: "AssetConfig" },
+    ],
+    state_mutability: "view",
+  },
 ] as const;
 
 // ERC-4626 vToken ABI for Vesu V2

@@ -1,10 +1,13 @@
+node_modules
 .DS_Store
 .env
-/node_modules/
-
-# React Router
-/.react-router/
-/build/
-
-# Temporary files
+.env.local
+.vscode
+*.log
+build/
+public/build/
+.cache/
 /temp/
+!/temp/README.md
+!/temp/vtoken_addressses.txt
+.react-router/
