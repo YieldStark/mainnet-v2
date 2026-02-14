@@ -1,6 +1,5 @@
 // Vesu V2 Lending Service
-import { Contract, RpcProvider, Account, uint256 } from "starknet";
-import { VESU_VTOKEN_ABI } from "../abi/vesu";
+import { RpcProvider, uint256 } from "starknet";
 import { WBTC_ADDRESS, USDC_ADDRESS } from "../utils/Constants";
 
 // Vesu V2 Contract Addresses (Mainnet)
@@ -106,42 +105,54 @@ export const VESU_LENDING_POOLS: VesuPool[] = [
  * Deposit (supply) assets to a Vesu pool via vToken
  */
 export async function depositToVesu(
-  account: Account,
+  account: any,
   vTokenAddress: string,
   amount: bigint,
   receiverAddress: string
 ): Promise<string> {
-  const vTokenContract = new Contract(VESU_VTOKEN_ABI, vTokenAddress, account);
-
-  const depositCall = vTokenContract.populate("deposit", [
-    uint256.bnToUint256(amount),
-    receiverAddress,
-  ]);
-
-  const { transaction_hash } = await account.execute(depositCall);
-  return transaction_hash;
+  try {
+    const { transaction_hash } = await account.execute({
+      contractAddress: vTokenAddress,
+      entrypoint: "deposit",
+      calldata: [
+        uint256.bnToUint256(amount).low,
+        uint256.bnToUint256(amount).high,
+        receiverAddress,
+      ],
+    });
+    return transaction_hash;
+  } catch (error) {
+    console.error("depositToVesu error:", error);
+    throw error;
+  }
 }
 
 /**
  * Withdraw assets from a Vesu pool via vToken
  */
 export async function withdrawFromVesu(
-  account: Account,
+  account: any,
   vTokenAddress: string,
   amount: bigint,
   receiverAddress: string,
   ownerAddress: string
 ): Promise<string> {
-  const vTokenContract = new Contract(VESU_VTOKEN_ABI, vTokenAddress, account);
-
-  const withdrawCall = vTokenContract.populate("withdraw", [
-    uint256.bnToUint256(amount),
-    receiverAddress,
-    ownerAddress,
-  ]);
-
-  const { transaction_hash } = await account.execute(withdrawCall);
-  return transaction_hash;
+  try {
+    const { transaction_hash } = await account.execute({
+      contractAddress: vTokenAddress,
+      entrypoint: "withdraw",
+      calldata: [
+        uint256.bnToUint256(amount).low,
+        uint256.bnToUint256(amount).high,
+        receiverAddress,
+        ownerAddress,
+      ],
+    });
+    return transaction_hash;
+  } catch (error) {
+    console.error("withdrawFromVesu error:", error);
+    throw error;
+  }
 }
 
 /**
@@ -152,11 +163,28 @@ export async function getVTokenBalance(
   vTokenAddress: string,
   userAddress: string
 ): Promise<bigint> {
-  const provider = new RpcProvider({ nodeUrl: rpcUrl });
-  const vTokenContract = new Contract(VESU_VTOKEN_ABI, vTokenAddress, provider);
+  try {
+    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    
+    const result = await provider.callContract({
+      contractAddress: vTokenAddress,
+      entrypoint: "balance_of",
+      calldata: [userAddress],
+    });
 
-  const balance = await vTokenContract.balance_of(userAddress);
-  return uint256.uint256ToBN(balance);
+    const resultArray: string[] = Array.isArray(result)
+      ? result
+      : (result as { result?: string[] })?.result || [];
+
+    if (resultArray.length < 2) {
+      return 0n;
+    }
+
+    return uint256.uint256ToBN({ low: resultArray[0], high: resultArray[1] });
+  } catch (error) {
+    console.error("getVTokenBalance error:", error);
+    return 0n;
+  }
 }
 
 /**
@@ -167,11 +195,29 @@ export async function convertSharesToAssets(
   vTokenAddress: string,
   shares: bigint
 ): Promise<bigint> {
-  const provider = new RpcProvider({ nodeUrl: rpcUrl });
-  const vTokenContract = new Contract(VESU_VTOKEN_ABI, vTokenAddress, provider);
+  try {
+    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const sharesUint256 = uint256.bnToUint256(shares);
+    
+    const result = await provider.callContract({
+      contractAddress: vTokenAddress,
+      entrypoint: "convert_to_assets",
+      calldata: [sharesUint256.low, sharesUint256.high],
+    });
 
-  const assets = await vTokenContract.convert_to_assets(uint256.bnToUint256(shares));
-  return uint256.uint256ToBN(assets);
+    const resultArray: string[] = Array.isArray(result)
+      ? result
+      : (result as { result?: string[] })?.result || [];
+
+    if (resultArray.length < 2) {
+      return 0n;
+    }
+
+    return uint256.uint256ToBN({ low: resultArray[0], high: resultArray[1] });
+  } catch (error) {
+    console.error("convertSharesToAssets error:", error);
+    return shares; // Return shares as fallback
+  }
 }
 
 /**
@@ -182,11 +228,28 @@ export async function getMaxWithdraw(
   vTokenAddress: string,
   ownerAddress: string
 ): Promise<bigint> {
-  const provider = new RpcProvider({ nodeUrl: rpcUrl });
-  const vTokenContract = new Contract(VESU_VTOKEN_ABI, vTokenAddress, provider);
+  try {
+    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    
+    const result = await provider.callContract({
+      contractAddress: vTokenAddress,
+      entrypoint: "max_withdraw",
+      calldata: [ownerAddress],
+    });
 
-  const maxAmount = await vTokenContract.max_withdraw(ownerAddress);
-  return uint256.uint256ToBN(maxAmount);
+    const resultArray: string[] = Array.isArray(result)
+      ? result
+      : (result as { result?: string[] })?.result || [];
+
+    if (resultArray.length < 2) {
+      return 0n;
+    }
+
+    return uint256.uint256ToBN({ low: resultArray[0], high: resultArray[1] });
+  } catch (error) {
+    console.error("getMaxWithdraw error:", error);
+    return 0n;
+  }
 }
 
 /**
@@ -196,9 +259,26 @@ export async function getTotalAssets(
   rpcUrl: string,
   vTokenAddress: string
 ): Promise<bigint> {
-  const provider = new RpcProvider({ nodeUrl: rpcUrl });
-  const vTokenContract = new Contract(VESU_VTOKEN_ABI, vTokenAddress, provider);
+  try {
+    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    
+    const result = await provider.callContract({
+      contractAddress: vTokenAddress,
+      entrypoint: "total_assets",
+      calldata: [],
+    });
 
-  const total = await vTokenContract.total_assets();
-  return uint256.uint256ToBN(total);
+    const resultArray: string[] = Array.isArray(result)
+      ? result
+      : (result as { result?: string[] })?.result || [];
+
+    if (resultArray.length < 2) {
+      return 0n;
+    }
+
+    return uint256.uint256ToBN({ low: resultArray[0], high: resultArray[1] });
+  } catch (error) {
+    console.error("getTotalAssets error:", error);
+    return 0n;
+  }
 }

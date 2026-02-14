@@ -175,8 +175,14 @@ export const WBTC_ADDRESS =
   "0x03Fe2b97C1Fd336E750087D68B9b867997Fd64a2661fF3ca5A7C771641e8e7AC" as const;
 export const ETH_ADDRESS =
   "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7" as const;
+
+// USDC - Bridged USDC (USDC.e from Ethereum via StarkGate)
 export const USDC_ADDRESS =
-  "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8" as const;
+  "0x033068f6539f8e6e6b131e6b2b814e6c34a5224bc66947c47dab9dfee93b35fb" as const;
+
+// Note: There are two USDC tokens on Starknet:
+// - Bridged USDC.e: 0x033068f6539f8e6e6b131e6b2b814e6c34a5224bc66947c47dab9dfee93b35fb (using this one)
+// - Native Circle USDC: 0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8
 
 // Placeholder for mainnet vault - replace with actual address
 export const VWBTC_ADDRESS = "" as const;

@@ -7,7 +7,10 @@ interface VesuLendModalProps {
   onClose: () => void;
   pool: VesuPool | null;
   onDeposit: (poolId: string, amount: string) => Promise<void>;
+  onWithdraw?: (poolId: string, amount: string) => Promise<void>;
   userBalance: string;
+  depositedBalance?: string;
+  mode?: "deposit" | "withdraw";
 }
 
 export default function VesuLendModal({
@@ -15,22 +18,37 @@ export default function VesuLendModal({
   onClose,
   pool,
   onDeposit,
+  onWithdraw,
   userBalance,
+  depositedBalance = "0",
+  mode = "deposit",
 }: VesuLendModalProps) {
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [currentMode, setCurrentMode] = useState<"deposit" | "withdraw">(mode);
 
   if (!isOpen || !pool) return null;
 
-  const handleDeposit = async () => {
+  console.log("VesuLendModal - Balance info:", {
+    pool: pool.name,
+    asset: pool.asset,
+    userBalance,
+    depositedBalance,
+    mode: currentMode,
+  });
+
+  const isWithdrawMode = currentMode === "withdraw";
+  const maxBalance = isWithdrawMode ? depositedBalance : userBalance;
+
+  const handleSubmit = async () => {
     if (!amount || parseFloat(amount) <= 0) {
       setError("Please enter a valid amount");
       return;
     }
 
-    if (parseFloat(amount) > parseFloat(userBalance)) {
-      setError("Insufficient balance");
+    if (parseFloat(amount) > parseFloat(maxBalance)) {
+      setError(`Insufficient ${isWithdrawMode ? "deposited" : ""} balance`);
       return;
     }
 
@@ -38,7 +56,15 @@ export default function VesuLendModal({
     setError("");
 
     try {
-      await onDeposit(pool.id, amount);
+      if (isWithdrawMode) {
+        if (onWithdraw) {
+          await onWithdraw(pool.id, amount);
+        } else {
+          throw new Error("Withdraw function not available");
+        }
+      } else {
+        await onDeposit(pool.id, amount);
+      }
       setAmount("");
       onClose();
     } catch (err) {
@@ -49,7 +75,7 @@ export default function VesuLendModal({
   };
 
   const handleMaxClick = () => {
-    setAmount(userBalance);
+    setAmount(maxBalance);
   };
 
   const getRiskColor = (risk: string) => {
@@ -70,7 +96,7 @@ export default function VesuLendModal({
       <div className="bg-[#0A1215] rounded-3xl p-6 w-full max-w-md border border-gray-800">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-medium text-white">
-            Lend to {pool.name}
+            {isWithdrawMode ? "Withdraw from" : "Lend to"} {pool.name}
           </h2>
           <button
             onClick={onClose}
@@ -79,6 +105,32 @@ export default function VesuLendModal({
             <X size={24} />
           </button>
         </div>
+
+        {/* Mode Toggle */}
+        {onWithdraw && parseFloat(depositedBalance) > 0 && (
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => setCurrentMode("deposit")}
+              className={`flex-1 px-4 py-2 rounded-xl font-medium transition-colors ${
+                !isWithdrawMode
+                  ? "bg-[#97FCE4] text-black"
+                  : "bg-[#101D22] text-gray-400 hover:text-white"
+              }`}
+            >
+              Deposit
+            </button>
+            <button
+              onClick={() => setCurrentMode("withdraw")}
+              className={`flex-1 px-4 py-2 rounded-xl font-medium transition-colors ${
+                isWithdrawMode
+                  ? "bg-[#97FCE4] text-black"
+                  : "bg-[#101D22] text-gray-400 hover:text-white"
+              }`}
+            >
+              Withdraw
+            </button>
+          </div>
+        )}
 
         <div className="space-y-4 mb-6">
           <div className="bg-[#101D22] rounded-2xl p-4">
@@ -108,7 +160,7 @@ export default function VesuLendModal({
                 Amount ({pool.asset})
               </label>
               <span className="text-xs text-gray-500">
-                Balance: {userBalance} {pool.asset}
+                {isWithdrawMode ? "Deposited" : "Balance"}: {maxBalance} {pool.asset}
               </span>
             </div>
             <div className="relative">
@@ -149,11 +201,11 @@ export default function VesuLendModal({
             Cancel
           </button>
           <button
-            onClick={handleDeposit}
+            onClick={handleSubmit}
             disabled={isProcessing || !amount}
             className="flex-1 px-6 py-3 bg-[#97FCE4] text-black font-medium rounded-full hover:bg-[#85E6D1] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isProcessing ? "Processing..." : "Deposit"}
+            {isProcessing ? "Processing..." : isWithdrawMode ? "Withdraw" : "Deposit"}
           </button>
         </div>
       </div>
