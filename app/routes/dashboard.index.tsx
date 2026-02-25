@@ -54,7 +54,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="bg-[#101D22] rounded-4xl p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-3 space-y-6">
             <div>
               <h3 className="text-lg font-medium text-white mb-6">
                 Your Wallet Address:

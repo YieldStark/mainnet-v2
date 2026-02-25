@@ -216,7 +216,7 @@ export default function SwapPage() {
 
   return (
     <Layout showSidebar={true}>
-      <div className="flex-1 min-h-0 flex items-center justify-center py-8">
+      <div className="w-full min-h-[calc(100vh-180px)] flex items-center justify-center py-8">
         <div className="bg-[#101D22] rounded-4xl p-6 max-w-lg w-full">
           <h1 className="text-2xl font-medium text-white mb-6">Swap</h1>
 

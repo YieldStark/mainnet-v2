@@ -33,7 +33,7 @@ const Layout = ({ children, showSidebar = true }: LayoutProps) => {
             </div>
           </>
         )}
-        <main className="flex-1 flex min-h-0">{children}</main>
+        <main className="flex-1">{children}</main>
       </div>
     </div>
   )

@@ -13,7 +13,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   const navigationItems = [
     { name: "Overview", href: "/dashboard", icon: "/icons/overview.svg" },
-    { name: "Swap", href: "/swap", icon: "/icons/overview.svg" },
+    { name: "Swap", href: "/swap", icon: "/icons/swap-svgrepo-com.svg" },
     { name: "Yield", href: "/dashboard/yield", icon: "/icons/opportunities.svg" },
     { name: "Agent", href: "/dashboard/agent", icon: "/icons/overview.svg" },
     { name: "History", href: "/dashboard/history", icon: "/icons/history.svg" },
@@ -74,7 +74,13 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                         alt={item.name}
                         width={20}
                         height={20}
-                        className={isActive ? "brightness-0" : "brightness-100"}
+                        className={
+                          item.name === "Swap"
+                            ? "brightness-100"
+                            : isActive
+                              ? "brightness-0"
+                              : "brightness-100"
+                        }
                       />
                     </div>
                     <span className="text-base font-medium">{item.name}</span>
