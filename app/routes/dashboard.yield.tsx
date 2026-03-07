@@ -219,6 +219,7 @@ export default function YieldPage() {
           await account.waitForTransaction(approveTxHash, {
             retryInterval: 3000,
             successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
+            timeout: 180000, // 3 minutes timeout
           });
           toast.success("Token approval confirmed!", { id: "deposit-status" });
         } catch (error: any) {
@@ -262,6 +263,7 @@ export default function YieldPage() {
         await account.waitForTransaction(depositTxHash, {
           retryInterval: 5000, // Check every 5 seconds
           successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
+          timeout: 180000, // 3 minutes timeout
         });
       } catch (error: any) {
         // If timeout, show partial success message
@@ -402,6 +404,7 @@ export default function YieldPage() {
         await account.waitForTransaction(withdrawTxHash, {
           retryInterval: 5000, // Check every 5 seconds
           successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
+          timeout: 180000, // 3 minutes timeout
         });
       } catch (error: any) {
         // If timeout, show partial success message
