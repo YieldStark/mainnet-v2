@@ -16,18 +16,30 @@ export async function approveToken(
   amount: bigint
 ): Promise<string> {
   try {
-    // Prepare the approve call data
-    const approveCalldata = CallData.compile([
-      spenderAddress,
-      uint256.bnToUint256(amount),
-    ]);
-
+    // Convert amount to uint256 format
+    const amountUint256 = uint256.bnToUint256(amount);
+    
+    console.log("=== APPROVE TOKEN DEBUG ===");
+    console.log("Account address:", account.address);
+    console.log("Token address:", tokenAddress);
+    console.log("Spender address:", spenderAddress);
+    console.log("Amount (bigint):", amount.toString());
+    console.log("Amount uint256 low:", amountUint256.low);
+    console.log("Amount uint256 high:", amountUint256.high);
+    console.log("===========================");
+    
+    // Prepare the approve call data with proper uint256 format
     const { transaction_hash } = await account.execute({
       contractAddress: tokenAddress,
       entrypoint: "approve",
-      calldata: approveCalldata,
+      calldata: [
+        spenderAddress,
+        amountUint256.low,
+        amountUint256.high,
+      ],
     });
 
+    console.log("Approval transaction hash:", transaction_hash);
     return transaction_hash;
   } catch (error) {
     console.error("approveToken error:", error);

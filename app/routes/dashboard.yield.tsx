@@ -204,19 +204,63 @@ export default function YieldPage() {
         throw new Error("Invalid amount");
       }
 
+      // Use account.address for all operations (approval, deposit, etc.)
+      const operatingAddress = account.address;
+      const rpcUrl = currentNetwork.rpcUrl;
+
+      // Debug: Log addresses being used
+      console.log("=== DEPOSIT DEBUG ===");
+      console.log("Wallet address (vaultAddress):", address);
+      console.log("Account address:", account.address);
+      console.log("Token address:", pool.assetAddress);
+      console.log("vToken (spender) address:", pool.vTokenAddress);
+      console.log("Amount:", amountBigInt.toString());
+      console.log("====================");
+
+      // Check actual token balance before proceeding
+      const actualBalance = await fetchTokenBalance(
+        rpcUrl,
+        pool.assetAddress,
+        operatingAddress,
+        decimals
+      );
+      const actualBalanceBigInt = BigInt(Math.floor(parseFloat(actualBalance) * 10 ** decimals));
+      
+      console.log("Actual on-chain balance:", actualBalance, "(" + actualBalanceBigInt.toString() + ")");
+      console.log("Trying to deposit:", amount, "(" + amountBigInt.toString() + ")");
+      
+      if (actualBalanceBigInt < amountBigInt) {
+        toast.error(
+          <div>
+            <div className="font-medium">Insufficient balance</div>
+            <div className="text-xs mt-1">You have {actualBalance} {pool.asset}, but trying to deposit {amount}</div>
+          </div>,
+          { id: "deposit-status", duration: 8000 }
+        );
+        throw new Error(`Insufficient balance: have ${actualBalance} ${pool.asset}, need ${amount}`);
+      }
+      
       // Step 1: Check allowance
       toast.loading("Checking token approval...", { id: "deposit-status" });
-      const rpcUrl = currentNetwork.rpcUrl;
       const currentAllowance = await checkAllowance(
         rpcUrl,
         pool.assetAddress,
-        address,
+        operatingAddress, // Use account.address, not vaultAddress
         pool.vTokenAddress
       );
+      
+      console.log("Current allowance for", operatingAddress, ":", currentAllowance.toString());
+      console.log("Required amount:", amountBigInt.toString());
 
       // Step 2: Request approval if insufficient
       if (currentAllowance < amountBigInt) {
-        toast.loading("Requesting token approval...", { id: "deposit-status" });
+        toast.loading(
+          <div>
+            <div>Requesting token approval...</div>
+            <div className="text-xs mt-1">⚠️ Check your wallet extension for a popup to approve</div>
+          </div>, 
+          { id: "deposit-status" }
+        );
         
         const approveTxHash = await approveToken(
           account,
@@ -241,10 +285,47 @@ export default function YieldPage() {
             timeout: 180000, // 3 minutes timeout
           });
           toast.success("Token approval confirmed!", { id: "deposit-status" });
+          
+          // Wait a moment for blockchain state to update
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          // Verify allowance was actually set
+          const verifiedAllowance = await checkAllowance(
+            rpcUrl,
+            pool.assetAddress,
+            operatingAddress, // Use account.address
+            pool.vTokenAddress
+          );
+          
+          if (verifiedAllowance < amountBigInt) {
+            toast.error(
+              <div>
+                <div className="font-medium">Approval not yet confirmed on-chain</div>
+                <div className="text-xs mt-1">Please wait a bit longer and try again</div>
+              </div>,
+              { id: "deposit-status", duration: 8000 }
+            );
+            throw new Error("Approval not confirmed - please retry");
+          }
         } catch (error: any) {
-          // If timeout, still proceed but warn user
+          // If timeout, don't proceed - approval must complete first
           if (error?.message?.includes("timeout")) {
-            toast.loading("Approval pending, proceeding with deposit...", { id: "deposit-status" });
+            toast.error(
+              <div>
+                <div className="font-medium">Approval transaction is taking longer than expected</div>
+                <div className="text-xs mt-1">Please wait for it to complete, then try depositing again</div>
+                <a
+                  href={`${currentNetwork.explorerUrl}/tx/${approveTxHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs underline block mt-1"
+                >
+                  Track approval on Explorer →
+                </a>
+              </div>,
+              { id: "deposit-status", duration: 10000 }
+            );
+            throw new Error("Approval transaction timeout - please try again once it confirms");
           } else {
             throw error;
           }
@@ -252,13 +333,19 @@ export default function YieldPage() {
       }
 
       // Step 3: Execute deposit
-      toast.loading("Executing deposit...", { id: "deposit-status" });
+      toast.loading(
+        <div>
+          <div>Executing deposit...</div>
+          <div className="text-xs mt-1">⚠️ Check your wallet extension for a popup to confirm</div>
+        </div>, 
+        { id: "deposit-status" }
+      );
       
       const depositTxHash = await depositToVesu(
         account,
         pool.vTokenAddress,
         amountBigInt,
-        address // Receiver address (self)
+        operatingAddress // Receiver address (use account.address, not vaultAddress)
       );
 
       toast.loading(
@@ -327,18 +414,18 @@ export default function YieldPage() {
       // Wait a moment for blockchain to update
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Refresh balances (reuse rpcUrl from line 190)
+      // Refresh balances using the operating address
       const [wbtcBalance, usdcBalance] = await Promise.all([
         fetchTokenBalance(
           rpcUrl,
           VESU_LENDING_POOLS.find(p => p.asset === "WBTC")!.assetAddress,
-          address,
+          operatingAddress,
           8
         ),
         fetchTokenBalance(
           rpcUrl,
           VESU_LENDING_POOLS.find(p => p.asset === "USDC")!.assetAddress,
-          address,
+          operatingAddress,
           6
         ),
       ]);
@@ -360,8 +447,34 @@ export default function YieldPage() {
         throw new Error("Transaction cancelled by user");
       }
       
+      // Timeout error from wallet
+      if (error?.message?.includes("Timeout") || error?.message?.includes("timeout")) {
+        toast.error(
+          <div>
+            <div className="font-medium">Wallet timeout</div>
+            <div className="text-xs mt-1">Please check if your wallet extension is working properly</div>
+            <div className="text-xs">Try refreshing the page and ensure your wallet is unlocked</div>
+          </div>,
+          { id: "deposit-status", duration: 8000 }
+        );
+        throw new Error("Wallet timeout - please refresh and try again");
+      }
+      
+      // Insufficient allowance
+      if (error?.message?.includes("insufficient allowance") || error?.message?.includes("allowance")) {
+        toast.error(
+          <div>
+            <div className="font-medium">Token approval required</div>
+            <div className="text-xs mt-1">The approval transaction may not have completed yet</div>
+            <div className="text-xs">Please wait a moment and try again</div>
+          </div>,
+          { id: "deposit-status", duration: 8000 }
+        );
+        throw new Error("Insufficient allowance - approval pending");
+      }
+      
       // Insufficient balance
-      if (error?.message?.includes("balance")) {
+      if (error?.message?.includes("balance") && !error?.message?.includes("allowance")) {
         toast.error("Insufficient balance", { id: "deposit-status" });
         throw new Error("Insufficient balance");
       }
@@ -384,6 +497,9 @@ export default function YieldPage() {
     }
 
     try {
+      // Use account.address for all operations
+      const operatingAddress = account.address;
+      
       // Parse amount to smallest unit (wei)
       const decimals = pool.asset === "WBTC" ? 8 : 6;
       const amountBigInt = BigInt(Math.floor(parseFloat(amount) * 10 ** decimals));
@@ -399,8 +515,8 @@ export default function YieldPage() {
         account,
         pool.vTokenAddress,
         amountBigInt,
-        address, // Receiver address (self)
-        address  // Owner address (self)
+        operatingAddress, // Receiver address (use account.address)
+        operatingAddress  // Owner address (use account.address)
       );
 
       toast.loading(
@@ -469,19 +585,19 @@ export default function YieldPage() {
       // Wait a moment for blockchain to update
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Refresh balances
+      // Refresh balances using the operating address
       const rpcUrl = currentNetwork.rpcUrl;
       const [wbtcBalance, usdcBalance] = await Promise.all([
         fetchTokenBalance(
           rpcUrl,
           VESU_LENDING_POOLS.find(p => p.asset === "WBTC")!.assetAddress,
-          address,
+          operatingAddress,
           8
         ),
         fetchTokenBalance(
           rpcUrl,
           VESU_LENDING_POOLS.find(p => p.asset === "USDC")!.assetAddress,
-          address,
+          operatingAddress,
           6
         ),
       ]);
