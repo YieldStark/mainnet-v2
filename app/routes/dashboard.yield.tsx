@@ -11,6 +11,7 @@ import {
 import VesuLendModal from "~/components/ui/VesuLendModal";
 import VesuPositions from "~/components/dashboard/VesuPositions";
 import TrovesPositions from "~/components/dashboard/TrovesPositions";
+import DatabaseStats from "~/components/dashboard/DatabaseStats";
 import { useWalletStore } from "~/providers/wallet-store-provider";
 import toast from "react-hot-toast";
 import { useVesuPoolData } from "~/hooks/useVesuPoolData";
@@ -18,6 +19,7 @@ import { useNetworkStore } from "~/stores/network-store";
 import { fetchTokenBalance } from "~/lib/utils/fetchTokenBalance";
 import { approveToken, checkAllowance, MAX_UINT256 } from "~/lib/utils/tokenApproval";
 import { saveLocalTransaction } from "~/lib/utils/transactionHistory";
+import { recordDeposit } from "~/lib/utils/recordTransaction";
 import {
   useTrovesStrategies,
 } from "~/hooks/useTrovesStrategies";
@@ -424,6 +426,19 @@ export default function YieldPage() {
         contractLabel: pool.name,
       });
 
+      const depositDecimals = pool.asset === "WBTC" ? 8 : 6;
+      recordDeposit({
+        transactionHash: depositTxHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        userAddress: operatingAddress,
+        tokenAddress: pool.assetAddress,
+        tokenSymbol: pool.asset,
+        amountRaw: amountBigInt.toString(),
+        decimals: depositDecimals,
+        status: 'completed',
+        poolAddress: pool.poolAddress
+      }).catch(err => console.error('Failed to record deposit:', err));
+
       // Wait a moment for blockchain to update
       await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -742,6 +757,19 @@ export default function YieldPage() {
         blockNumber: 0,
         contractLabel: strategy.name,
       });
+
+      recordDeposit({
+        transactionHash: txHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        userAddress: address,
+        tokenAddress: token0.address,
+        tokenSymbol: `${token0.symbol}/${token1.symbol}`,
+        amountRaw: `${amount0.toString()},${amount1.toString()}`,
+        decimals: token0.decimals,
+        status: 'completed',
+        poolAddress: getVaultAddress(strategy)
+      }).catch(err => console.error('Failed to record deposit:', err));
+
       await new Promise((r) => setTimeout(r, 2000));
       setRefreshPositions((p) => p + 1);
     } catch (err: unknown) {
@@ -753,6 +781,9 @@ export default function YieldPage() {
 
   return (
     <div className="space-y-6">
+      {/* Database Statistics */}
+      <DatabaseStats />
+
       {/* User Positions Widgets */}
       {address && (
         <>

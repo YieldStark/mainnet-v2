@@ -15,6 +15,7 @@ import {
 import { parseUnits, formatUnits } from '~/lib/utils/parseUnits'
 import { fetchTokenBalance } from '~/lib/utils/fetchTokenBalance'
 import toast from 'react-hot-toast'
+import { recordSwap } from '~/lib/utils/recordTransaction'
 
 const BATCH_SIZE = 10
 const QUOTE_DEBOUNCE_MS = 400
@@ -185,13 +186,27 @@ export default function SwapPage() {
   )
 
   const handleSwap = useCallback(async () => {
-    if (!quote || !wallet || !vaultAddress) return
+    if (!quote || !wallet || !vaultAddress || !sellToken || !buyToken) return
     const account = wallet as unknown as import('starknet').AccountInterface
     setSwapping(true)
     setLastSwapTxHash(null)
     try {
       const { transactionHash } = await runSwap({ provider: account, quote })
       toast.success('Swap complete')
+      
+      recordSwap({
+        transactionHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        userAddress: vaultAddress,
+        tokenIn: sellToken.address,
+        tokenOut: buyToken.address,
+        amountIn: quote.sellAmount.toString(),
+        amountOut: quote.buyAmount.toString(),
+        decimalsIn: sellToken.decimals,
+        poolAddress: quote.routes?.[0]?.name,
+        protocol: 'avnu'
+      }).catch(err => console.error('Failed to record swap:', err))
+      
       setSellAmount('')
       setQuote(null)
       setLastSwapTxHash(transactionHash)
@@ -203,7 +218,7 @@ export default function SwapPage() {
     } finally {
       setSwapping(false)
     }
-  }, [quote, wallet, vaultAddress, currentNetwork.rpcUrl, updateBalances])
+  }, [quote, wallet, vaultAddress, sellToken, buyToken, currentNetwork.rpcUrl, updateBalances])
 
   const canSwap =
     isConnected &&
