@@ -15,7 +15,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     { name: "Overview", href: "/dashboard", icon: "/icons/overview.svg" },
     { name: "Swap", href: "/swap", icon: "/icons/swap-svgrepo-com.svg" },
     { name: "Yield", href: "/dashboard/yield", icon: "/icons/opportunities.svg" },
-    { name: "Agent", href: "/dashboard/agent", icon: "/icons/overview.svg" },
+    // { name: "Agent", href: "/dashboard/agent", icon: "/icons/overview.svg" },
     { name: "History", href: "/dashboard/history", icon: "/icons/history.svg" },
     { name: "Staking", href: "/dashboard/staking", icon: "/icons/staking.png" },
     { name: "Settings", href: "/dashboard/settings", icon: "/icons/settings.svg" },
