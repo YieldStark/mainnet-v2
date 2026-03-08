@@ -17,6 +17,7 @@ import { useVesuPoolData } from "~/hooks/useVesuPoolData";
 import { useNetworkStore } from "~/stores/network-store";
 import { fetchTokenBalance } from "~/lib/utils/fetchTokenBalance";
 import { approveToken, checkAllowance, MAX_UINT256 } from "~/lib/utils/tokenApproval";
+import { saveLocalTransaction } from "~/lib/utils/transactionHistory";
 import {
   useTrovesStrategies,
 } from "~/hooks/useTrovesStrategies";
@@ -411,6 +412,18 @@ export default function YieldPage() {
         { id: "deposit-status", duration: 5000 }
       );
 
+      saveLocalTransaction({
+        hash: depositTxHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        type: "deposit",
+        amount,
+        from: operatingAddress,
+        to: pool.vTokenAddress,
+        status: "success",
+        blockNumber: 0,
+        contractLabel: pool.name,
+      });
+
       // Wait a moment for blockchain to update
       await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -582,6 +595,18 @@ export default function YieldPage() {
         { id: "withdraw-status", duration: 5000 }
       );
 
+      saveLocalTransaction({
+        hash: withdrawTxHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        type: "withdraw",
+        amount,
+        from: pool.vTokenAddress,
+        to: operatingAddress,
+        status: "success",
+        blockNumber: 0,
+        contractLabel: pool.name,
+      });
+
       // Wait a moment for blockchain to update
       await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -706,6 +731,17 @@ export default function YieldPage() {
         </a>,
         { id: "troves-deposit", duration: 8000 }
       );
+      saveLocalTransaction({
+        hash: txHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        type: "deposit",
+        amount: `${amount0Str} / ${amount1Str}`,
+        from: address,
+        to: getVaultAddress(strategy),
+        status: "success",
+        blockNumber: 0,
+        contractLabel: strategy.name,
+      });
       await new Promise((r) => setTimeout(r, 2000));
       setRefreshPositions((p) => p + 1);
     } catch (err: unknown) {

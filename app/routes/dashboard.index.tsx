@@ -10,6 +10,7 @@ import { useNetworkStore } from "~/stores/network-store";
 import { uint256 } from "starknet";
 import { WBTC_ADDRESS } from "~/lib/utils/Constants";
 import toast from "react-hot-toast";
+import { saveLocalTransaction } from "~/lib/utils/transactionHistory";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Dashboard - YieldStark" }];
@@ -129,6 +130,18 @@ export default function DashboardPage() {
           throw error;
         }
       }
+
+      saveLocalTransaction({
+        hash: transaction_hash,
+        timestamp: Math.floor(Date.now() / 1000),
+        type: "transfer",
+        amount,
+        from: vaultAddress,
+        to: recipientAddress,
+        status: "success",
+        blockNumber: 0,
+        contractLabel: "WBTC",
+      });
 
       // Refresh balance after send
       setTimeout(() => {
