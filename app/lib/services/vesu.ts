@@ -52,16 +52,16 @@ export interface VesuPool {
 // Available Vesu pools for lending
 export const VESU_LENDING_POOLS: VesuPool[] = [
   {
-    id: "vesu-xbtc",
-    name: "Re7 xBTC Pool",
-    poolAddress: VESU_CONTRACTS.RE7_XBTC,
-    vTokenAddress: VESU_VTOKENS.TBTC_XBTC, // Using tBTC vToken for Re7 xBTC pool
+    id: "vesu-wbtc-core",
+    name: "Re7 USDC Core - WBTC",
+    poolAddress: VESU_CONTRACTS.RE7_USDC_CORE,
+    vTokenAddress: VESU_VTOKENS.WBTC_CORE, // Correct vToken for WBTC
     asset: "WBTC",
     assetAddress: WBTC_ADDRESS,
     apy: "4.5%", // This should be fetched dynamically
     tvl: "$2.5M", // This should be fetched dynamically
-    description: "Earn yield by lending WBTC to the Re7 xBTC pool on Vesu",
-    riskLevel: "Medium",
+    description: "Earn yield by lending WBTC to the Re7 USDC Core pool on Vesu",
+    riskLevel: "Low",
   },
   {
     id: "vesu-usdc-core",
@@ -111,15 +111,28 @@ export async function depositToVesu(
   receiverAddress: string
 ): Promise<string> {
   try {
+    const amountUint256 = uint256.bnToUint256(amount);
+    
+    console.log("=== DEPOSIT TO VESU DEBUG ===");
+    console.log("Account address:", account.address);
+    console.log("vToken address:", vTokenAddress);
+    console.log("Amount (bigint):", amount.toString());
+    console.log("Amount uint256 low:", amountUint256.low);
+    console.log("Amount uint256 high:", amountUint256.high);
+    console.log("Receiver address:", receiverAddress);
+    console.log("=============================");
+    
     const { transaction_hash } = await account.execute({
       contractAddress: vTokenAddress,
       entrypoint: "deposit",
       calldata: [
-        uint256.bnToUint256(amount).low,
-        uint256.bnToUint256(amount).high,
+        amountUint256.low,
+        amountUint256.high,
         receiverAddress,
       ],
     });
+    
+    console.log("Deposit transaction hash:", transaction_hash);
     return transaction_hash;
   } catch (error) {
     console.error("depositToVesu error:", error);
@@ -138,12 +151,14 @@ export async function withdrawFromVesu(
   ownerAddress: string
 ): Promise<string> {
   try {
+    const amountUint256 = uint256.bnToUint256(amount);
+    
     const { transaction_hash } = await account.execute({
       contractAddress: vTokenAddress,
       entrypoint: "withdraw",
       calldata: [
-        uint256.bnToUint256(amount).low,
-        uint256.bnToUint256(amount).high,
+        amountUint256.low,
+        amountUint256.high,
         receiverAddress,
         ownerAddress,
       ],
