@@ -10,21 +10,37 @@ import {
 } from "~/lib/services/vesu";
 import VesuLendModal from "~/components/ui/VesuLendModal";
 import VesuPositions from "~/components/dashboard/VesuPositions";
+import TrovesPositions from "~/components/dashboard/TrovesPositions";
 import { useWalletStore } from "~/providers/wallet-store-provider";
 import toast from "react-hot-toast";
 import { useVesuPoolData } from "~/hooks/useVesuPoolData";
 import { useNetworkStore } from "~/stores/network-store";
 import { fetchTokenBalance } from "~/lib/utils/fetchTokenBalance";
 import { approveToken, checkAllowance, MAX_UINT256 } from "~/lib/utils/tokenApproval";
+import {
+  useTrovesStrategies,
+} from "~/hooks/useTrovesStrategies";
+import {
+  depositToTrovesVault,
+  getVaultAddress,
+  type TrovesStrategy,
+} from "~/lib/services/troves";
+import TrovesDepositModal from "~/components/ui/TrovesDepositModal";
+
+// USDC.e (bridged) for Troves WBTC/USDC.e strategy
+const USDC_E_ADDRESS = "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8";
 
 export default function YieldPage() {
   const [selectedPool, setSelectedPool] = useState<VesuPool | null>(null);
   const [isLendModalOpen, setIsLendModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"deposit" | "withdraw">("deposit");
+  const [selectedTrovesStrategy, setSelectedTrovesStrategy] = useState<TrovesStrategy | null>(null);
+  const [isTrovesModalOpen, setIsTrovesModalOpen] = useState(false);
   const wallet = useWalletStore((state) => state.wallet);
   const vaultAddress = useWalletStore((state) => state.vaultAddress);
   const isConnected = useWalletStore((state) => state.isConnected);
   const { poolsData, isLoading, error } = useVesuPoolData();
+  const { strategies: trovesStrategies, isLoading: trovesLoading } = useTrovesStrategies();
   const currentNetwork = useNetworkStore((state) => state.currentNetwork);
   
   // Use vaultAddress from wallet store as the primary address source
@@ -36,6 +52,7 @@ export default function YieldPage() {
   const [balances, setBalances] = useState({
     WBTC: "0.0",
     USDC: "0.0",
+    USDCe: "0.0",
   });
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   
@@ -56,7 +73,7 @@ export default function YieldPage() {
       
       if (!address) {
         console.log("No wallet address available - skipping balance fetch");
-        setBalances({ WBTC: "0.0", USDC: "0.0" });
+        setBalances({ WBTC: "0.0", USDC: "0.0", USDCe: "0.0" });
         setDepositedBalances({});
         return;
       }
@@ -76,8 +93,8 @@ export default function YieldPage() {
         console.log("RPC URL:", rpcUrl);
         console.log("========================");
         
-        // Fetch WBTC and USDC balances in parallel
-        const [wbtcBalance, usdcBalance] = await Promise.all([
+        // Fetch WBTC, USDC, and USDC.e (for Troves) balances in parallel
+        const [wbtcBalance, usdcBalance, usdcEBalance] = await Promise.all([
           fetchTokenBalance(
             rpcUrl,
             wbtcTokenAddress,
@@ -90,13 +107,15 @@ export default function YieldPage() {
             address,
             6 // USDC decimals
           ),
+          fetchTokenBalance(rpcUrl, USDC_E_ADDRESS, address, 6),
         ]);
 
-        console.log("Fetched balances:", { wbtcBalance, usdcBalance });
+        console.log("Fetched balances:", { wbtcBalance, usdcBalance, usdcEBalance });
 
         setBalances({
           WBTC: wbtcBalance,
           USDC: usdcBalance,
+          USDCe: usdcEBalance,
         });
 
         // Fetch deposited amounts (vToken balances converted to assets)
@@ -324,10 +343,11 @@ export default function YieldPage() {
         ),
       ]);
 
-      setBalances({
+      setBalances((prev) => ({
+        ...prev,
         WBTC: wbtcBalance,
         USDC: usdcBalance,
-      });
+      }));
 
       // Trigger position refresh
       setRefreshPositions((prev) => prev + 1);
@@ -466,10 +486,11 @@ export default function YieldPage() {
         ),
       ]);
 
-      setBalances({
+      setBalances((prev) => ({
+        ...prev,
         WBTC: wbtcBalance,
         USDC: usdcBalance,
-      });
+      }));
 
       // Trigger position refresh
       setRefreshPositions((prev) => prev + 1);
@@ -498,14 +519,104 @@ export default function YieldPage() {
   const wbtcPools = enrichedPools.filter((pool) => pool.asset === "WBTC");
   const usdcPools = enrichedPools.filter((pool) => pool.asset === "USDC");
 
+  const trovesUserBalances: Record<string, string> = {
+    WBTC: balances.WBTC,
+    USDC: balances.USDC,
+    "USDC.e": balances.USDCe,
+  };
+
+  const handleTrovesDeposit = async (
+    strategy: TrovesStrategy,
+    amount0Str: string,
+    amount1Str: string
+  ) => {
+    if (!account || !address) throw new Error("Wallet not connected");
+    const token0 = strategy.depositToken[0];
+    const token1 = strategy.depositToken[1];
+    if (!token0 || !token1) throw new Error("Strategy missing deposit tokens");
+    const amount0 = BigInt(Math.floor(parseFloat(amount0Str) * 10 ** token0.decimals));
+    const amount1 = BigInt(Math.floor(parseFloat(amount1Str) * 10 ** token1.decimals));
+    if (amount0 <= 0n || amount1 <= 0n) throw new Error("Invalid amounts");
+    const vaultAddress_ = getVaultAddress(strategy);
+    const rpcUrl = currentNetwork.rpcUrl;
+    toast.loading("Preparing… Check your wallet when a popup appears.", {
+      id: "troves-deposit",
+    });
+    try {
+      const txHash = await depositToTrovesVault(
+        account,
+        rpcUrl,
+        vaultAddress_,
+        token0.address,
+        token1.address,
+        amount0,
+        amount1,
+        address,
+        {
+          onBeforeApprove0: () => {
+            toast.loading(
+              "Sign approval 1 of 2 in your wallet (exact amount only).",
+              { id: "troves-deposit" }
+            );
+          },
+          onBeforeApprove1: () => {
+            toast.loading(
+              "Sign approval 2 of 2 in your wallet (exact amount only).",
+              { id: "troves-deposit" }
+            );
+          },
+          onBeforeDeposit: () => {
+            toast.loading(
+              "Approvals done. Please check your wallet to sign the deposit transaction.",
+              { id: "troves-deposit", duration: 8000 }
+            );
+          },
+        }
+      );
+      toast.loading("Waiting for confirmation…", { id: "troves-deposit" });
+      await account.waitForTransaction(txHash, {
+        retryInterval: 5000,
+        successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
+        timeout: 180000,
+      });
+      toast.success(
+        <a
+          href={`${currentNetwork.explorerUrl}/tx/${txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          Deposit successful — View on Explorer
+        </a>,
+        { id: "troves-deposit", duration: 8000 }
+      );
+      await new Promise((r) => setTimeout(r, 2000));
+      setRefreshPositions((p) => p + 1);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Deposit failed";
+      toast.error(msg, { id: "troves-deposit" });
+      throw err;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* User Positions Widget */}
+      {/* User Positions Widgets */}
       {address && (
-        <VesuPositions 
-          key={refreshPositions}
-          onManagePosition={handleOpenLendModal} 
-        />
+        <>
+          <VesuPositions
+            key={`vesu-${refreshPositions}`}
+            onManagePosition={handleOpenLendModal}
+          />
+          <TrovesPositions
+            key={`troves-${refreshPositions}`}
+            refreshTrigger={refreshPositions}
+            onManagePosition={(strategy) => {
+              setSelectedTrovesStrategy(strategy);
+              setIsTrovesModalOpen(true);
+            }}
+          />
+        </>
       )}
 
       {/* Header */}
@@ -544,6 +655,53 @@ export default function YieldPage() {
           </div>
         </div>
       </div>
+
+      {/* TrovesFi Yield (Ekubo WBTC/USDC & WBTC/USDC.e) */}
+      {trovesStrategies.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-medium text-white">TrovesFi Yield (Ekubo LP)</h2>
+            <div className="h-px flex-1 bg-gray-800" />
+          </div>
+          <p className="text-sm text-gray-400">
+            Provide equal value of both tokens. APY is 7d fee-based and does not include impermanent loss.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {trovesStrategies.map((s) => (
+              <div
+                key={s.id}
+                className="bg-[#101D22] rounded-3xl p-6 border border-gray-800 hover:border-[#97FCE4]/30 transition-all"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-xl font-medium text-white">{s.name}</h3>
+                  <span className="inline-block px-3 py-1 rounded-full text-xs font-medium border bg-gray-500/10 text-gray-400 border-gray-500/20">
+                    Re7 / Troves
+                  </span>
+                </div>
+                <div className="text-2xl font-bold text-[#97FCE4] mb-4">
+                  {s.apy != null ? `${(s.apy * 100).toFixed(2)}%` : "—"} APY
+                </div>
+                <div className="flex items-center justify-between text-sm text-gray-400 mb-4 pb-4 border-b border-gray-800">
+                  <span>TVL</span>
+                  <span className="text-white">
+                    ${s.tvlUsd >= 1e6 ? `${(s.tvlUsd / 1e6).toFixed(2)}M` : s.tvlUsd.toLocaleString()}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTrovesStrategy(s);
+                    setIsTrovesModalOpen(true);
+                  }}
+                  className="w-full px-6 py-3 bg-[#97FCE4] text-black font-medium rounded-full hover:bg-[#85E6D1] transition-colors"
+                >
+                  Deposit
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* WBTC Pools Section */}
       <div className="space-y-4">
@@ -591,6 +749,18 @@ export default function YieldPage() {
         userBalance={selectedPool ? balances[selectedPool.asset] : "0"}
         depositedBalance={selectedPool ? depositedBalances[selectedPool.id] || "0" : "0"}
         mode={modalMode}
+      />
+
+      {/* Troves Deposit Modal */}
+      <TrovesDepositModal
+        isOpen={isTrovesModalOpen}
+        onClose={() => {
+          setIsTrovesModalOpen(false);
+          setSelectedTrovesStrategy(null);
+        }}
+        strategy={selectedTrovesStrategy}
+        onDeposit={handleTrovesDeposit}
+        userBalances={trovesUserBalances}
       />
     </div>
   );
