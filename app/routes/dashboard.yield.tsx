@@ -185,6 +185,10 @@ export default function YieldPage() {
         throw new Error("Invalid amount");
       }
 
+      // Use account.address for all operations (approval, deposit, etc.)
+      const operatingAddress = account.address;
+      const rpcUrl = currentNetwork.rpcUrl;
+
       // Debug: Log addresses being used
       console.log("=== DEPOSIT DEBUG ===");
       console.log("Wallet address (vaultAddress):", address);
@@ -194,12 +198,31 @@ export default function YieldPage() {
       console.log("Amount:", amountBigInt.toString());
       console.log("====================");
 
-      // Use account.address for all operations (approval, deposit, etc.)
-      const operatingAddress = account.address;
+      // Check actual token balance before proceeding
+      const actualBalance = await fetchTokenBalance(
+        rpcUrl,
+        pool.assetAddress,
+        operatingAddress,
+        decimals
+      );
+      const actualBalanceBigInt = BigInt(Math.floor(parseFloat(actualBalance) * 10 ** decimals));
+      
+      console.log("Actual on-chain balance:", actualBalance, "(" + actualBalanceBigInt.toString() + ")");
+      console.log("Trying to deposit:", amount, "(" + amountBigInt.toString() + ")");
+      
+      if (actualBalanceBigInt < amountBigInt) {
+        toast.error(
+          <div>
+            <div className="font-medium">Insufficient balance</div>
+            <div className="text-xs mt-1">You have {actualBalance} {pool.asset}, but trying to deposit {amount}</div>
+          </div>,
+          { id: "deposit-status", duration: 8000 }
+        );
+        throw new Error(`Insufficient balance: have ${actualBalance} ${pool.asset}, need ${amount}`);
+      }
       
       // Step 1: Check allowance
       toast.loading("Checking token approval...", { id: "deposit-status" });
-      const rpcUrl = currentNetwork.rpcUrl;
       const currentAllowance = await checkAllowance(
         rpcUrl,
         pool.assetAddress,

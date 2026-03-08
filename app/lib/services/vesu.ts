@@ -76,15 +76,15 @@ export const VESU_LENDING_POOLS: VesuPool[] = [
     riskLevel: "Low",
   },
   {
-    id: "vesu-usdc-prime",
-    name: "Re7 USDC Prime",
+    id: "vesu-wbtc-prime",
+    name: "Re7 USDC Prime - WBTC",
     poolAddress: VESU_CONTRACTS.RE7_USDC_PRIME,
-    vTokenAddress: VESU_VTOKENS.USDC_PRIME,
-    asset: "USDC",
-    assetAddress: USDC_ADDRESS,
+    vTokenAddress: VESU_VTOKENS.USDC_PRIME, // This is actually vWBTC for USDC Prime pool
+    asset: "WBTC",
+    assetAddress: WBTC_ADDRESS,
     apy: "12.5%", // This should be fetched dynamically
     tvl: "$3.2M", // This should be fetched dynamically
-    description: "Earn higher yield by lending USDC to the Re7 USDC Prime pool on Vesu",
+    description: "Earn higher yield by lending WBTC as collateral to the Re7 USDC Prime pool on Vesu",
     riskLevel: "Medium",
   },
   {
