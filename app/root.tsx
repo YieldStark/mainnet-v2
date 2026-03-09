@@ -68,6 +68,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>YieldStark - Starknet Yield Platform</title>
         <meta name="description" content="Earn yield on your crypto assets with YieldStark on Starknet" />
+        {/* Open Graph / link preview */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Yieldstark - swap, earn and stake bitcoin on starknet" />
+        <meta property="og:description" content="Earn yield on your crypto assets with YieldStark on Starknet" />
+        <meta property="og:image" content="https://res.cloudinary.com/dijtcr8nh/image/upload/v1773044503/preview_1__page-0001_fngosp.jpg" />
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Yieldstark - swap, earn and stake bitcoin on starknet" />
+        <meta name="twitter:description" content="Earn yield on your crypto assets with YieldStark on Starknet" />
+        <meta name="twitter:image" content="https://res.cloudinary.com/dijtcr8nh/image/upload/v1773044503/preview_1__page-0001_fngosp.jpg" />
         <Meta />
         <Links />
       </head>
