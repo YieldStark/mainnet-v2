@@ -11,7 +11,6 @@ import {
 import VesuLendModal from "~/components/ui/VesuLendModal";
 import VesuPositions from "~/components/dashboard/VesuPositions";
 import TrovesPositions from "~/components/dashboard/TrovesPositions";
-import DatabaseStats from "~/components/dashboard/DatabaseStats";
 import { useWalletStore } from "~/providers/wallet-store-provider";
 import toast from "react-hot-toast";
 import { useVesuPoolData } from "~/hooks/useVesuPoolData";
@@ -25,10 +24,15 @@ import {
 } from "~/hooks/useTrovesStrategies";
 import {
   depositToTrovesVault,
+  redeemFromTrovesVault,
   getVaultAddress,
   type TrovesStrategy,
 } from "~/lib/services/troves";
 import TrovesDepositModal from "~/components/ui/TrovesDepositModal";
+import TrovesWithdrawModal, {
+  type TrovesPositionForWithdraw,
+} from "~/components/ui/TrovesWithdrawModal";
+import type { TrovesPosition } from "~/components/dashboard/TrovesPositions";
 
 // USDC.e (bridged) for Troves WBTC/USDC.e strategy
 const USDC_E_ADDRESS = "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8";
@@ -39,6 +43,9 @@ export default function YieldPage() {
   const [modalMode, setModalMode] = useState<"deposit" | "withdraw">("deposit");
   const [selectedTrovesStrategy, setSelectedTrovesStrategy] = useState<TrovesStrategy | null>(null);
   const [isTrovesModalOpen, setIsTrovesModalOpen] = useState(false);
+  const [selectedTrovesWithdrawPosition, setSelectedTrovesWithdrawPosition] =
+    useState<TrovesPosition | null>(null);
+  const [isTrovesWithdrawModalOpen, setIsTrovesWithdrawModalOpen] = useState(false);
   const wallet = useWalletStore((state) => state.wallet);
   const vaultAddress = useWalletStore((state) => state.vaultAddress);
   const isConnected = useWalletStore((state) => state.isConnected);
@@ -779,11 +786,61 @@ export default function YieldPage() {
     }
   };
 
+  const handleTrovesRedeem = async (
+    strategy: TrovesStrategy,
+    vaultAddress: string,
+    shares: bigint
+  ) => {
+    if (!account || !address) throw new Error("Wallet not connected");
+    toast.loading("Redeeming… Check your wallet.", { id: "troves-redeem" });
+    try {
+      const txHash = await redeemFromTrovesVault(
+        account,
+        vaultAddress,
+        shares,
+        address,
+        address
+      );
+      toast.loading("Waiting for confirmation…", { id: "troves-redeem" });
+      await account.waitForTransaction(txHash, {
+        retryInterval: 5000,
+        successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
+        timeout: 180000,
+      });
+      toast.success(
+        <a
+          href={`${currentNetwork.explorerUrl}/tx/${txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          Redeem successful — View on Explorer
+        </a>,
+        { id: "troves-redeem", duration: 8000 }
+      );
+      saveLocalTransaction({
+        hash: txHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        type: "withdraw",
+        amount: "0",
+        from: vaultAddress,
+        to: address,
+        status: "success",
+        blockNumber: 0,
+        contractLabel: strategy.name,
+      });
+      await new Promise((r) => setTimeout(r, 2000));
+      setRefreshPositions((p) => p + 1);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : String(err) || "Redeem failed";
+      toast.error(msg, { id: "troves-redeem", duration: 6000 });
+      throw err;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Database Statistics */}
-      <DatabaseStats />
-
       {/* User Positions Widgets */}
       {address && (
         <>
@@ -797,6 +854,10 @@ export default function YieldPage() {
             onManagePosition={(strategy) => {
               setSelectedTrovesStrategy(strategy);
               setIsTrovesModalOpen(true);
+            }}
+            onWithdrawPosition={(position) => {
+              setSelectedTrovesWithdrawPosition(position);
+              setIsTrovesWithdrawModalOpen(true);
             }}
           />
         </>
@@ -944,6 +1005,27 @@ export default function YieldPage() {
         strategy={selectedTrovesStrategy}
         onDeposit={handleTrovesDeposit}
         userBalances={trovesUserBalances}
+      />
+
+      {/* Troves Withdraw Modal */}
+      <TrovesWithdrawModal
+        isOpen={isTrovesWithdrawModalOpen}
+        onClose={() => {
+          setIsTrovesWithdrawModalOpen(false);
+          setSelectedTrovesWithdrawPosition(null);
+        }}
+        position={
+          selectedTrovesWithdrawPosition
+            ? {
+                strategy: selectedTrovesWithdrawPosition.strategy,
+                shareBalanceRaw: selectedTrovesWithdrawPosition.shareBalanceRaw,
+                estimatedValueUsd: selectedTrovesWithdrawPosition.estimatedValueUsd,
+              }
+            : null
+        }
+        userAddress={address ?? ""}
+        rpcUrl={currentNetwork.rpcUrl}
+        onRedeem={handleTrovesRedeem}
       />
     </div>
   );

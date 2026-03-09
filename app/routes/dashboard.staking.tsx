@@ -5,6 +5,9 @@ export default function StakingPage() {
         <h1 className="text-3xl font-medium text-white">Staking</h1>
         <p className="text-gray-400">Stake wBTC to earn rewards</p>
       </div>
+      <p className="text-5xl md:text-6xl font-semibold text-white/80 text-center py-12">
+        Coming Soon
+      </p>
     </div>
   );
 }

@@ -7,7 +7,13 @@
 import { uint256, RpcProvider } from "starknet";
 import { approveToken, checkAllowance } from "../utils/tokenApproval";
 
-/** Call vault's balance_of (share balance for user) */
+function parseUint256OrFelt(arr: string[]): bigint {
+  if (arr.length >= 2) return uint256.uint256ToBN({ low: arr[0], high: arr[1] });
+  if (arr.length === 1) return BigInt(arr[0]);
+  return 0n;
+}
+
+/** Call vault's balance_of (share balance for user). Handles uint256 or single felt. */
 export async function getTrovesVaultShareBalance(
   rpcUrl: string,
   vaultAddress: string,
@@ -23,14 +29,13 @@ export async function getTrovesVaultShareBalance(
     const arr: string[] = Array.isArray(result)
       ? result
       : (result as { result?: string[] })?.result ?? [];
-    if (arr.length < 2) return 0n;
-    return uint256.uint256ToBN({ low: arr[0], high: arr[1] });
+    return parseUint256OrFelt(arr);
   } catch {
     return 0n;
   }
 }
 
-/** Call vault's total_assets (if ERC4626-like) for share-to-value ratio */
+/** Call vault's total_assets (if ERC4626-like) for share-to-value ratio. Handles uint256 or single felt. */
 export async function getTrovesVaultTotalAssets(
   rpcUrl: string,
   vaultAddress: string
@@ -45,14 +50,13 @@ export async function getTrovesVaultTotalAssets(
     const arr: string[] = Array.isArray(result)
       ? result
       : (result as { result?: string[] })?.result ?? [];
-    if (arr.length < 2) return 0n;
-    return uint256.uint256ToBN({ low: arr[0], high: arr[1] });
+    return parseUint256OrFelt(arr);
   } catch {
     return 0n;
   }
 }
 
-/** Call vault's total_supply (shares) for share-to-value ratio */
+/** Call vault's total_supply (shares) for share-to-value ratio. Handles uint256 or single felt. */
 export async function getTrovesVaultTotalSupply(
   rpcUrl: string,
   vaultAddress: string
@@ -67,8 +71,30 @@ export async function getTrovesVaultTotalSupply(
     const arr: string[] = Array.isArray(result)
       ? result
       : (result as { result?: string[] })?.result ?? [];
-    if (arr.length < 2) return 0n;
-    return uint256.uint256ToBN({ low: arr[0], high: arr[1] });
+    return parseUint256OrFelt(arr);
+  } catch {
+    return 0n;
+  }
+}
+
+/** Convert shares to liquidity (assets). Use for max withdraw when vault exposes this. */
+export async function getTrovesVaultConvertToAssets(
+  rpcUrl: string,
+  vaultAddress: string,
+  shares: bigint
+): Promise<bigint> {
+  try {
+    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const s = uint256.bnToUint256(shares);
+    const result = await provider.callContract({
+      contractAddress: vaultAddress,
+      entrypoint: "convert_to_assets",
+      calldata: [s.low, s.high],
+    });
+    const arr: string[] = Array.isArray(result)
+      ? result
+      : (result as { result?: string[] })?.result ?? [];
+    return parseUint256OrFelt(arr);
   } catch {
     return 0n;
   }
@@ -247,6 +273,100 @@ export async function depositToTrovesVault(
       a1.high,
       receiverAddress,
     ],
+  });
+  return transaction_hash;
+}
+
+/**
+ * Get maximum liquidity (assets) the user can withdraw from the Troves vault.
+ * 1) Tries max_withdraw(owner).
+ * 2) Else convert_to_assets(user shares) if the vault exposes it.
+ * 3) Else (shares * total_assets) / total_supply. Handles uint256 or single-felt returns.
+ */
+export async function getTrovesVaultMaxWithdraw(
+  rpcUrl: string,
+  vaultAddress: string,
+  ownerAddress: string
+): Promise<bigint> {
+  const provider = new RpcProvider({ nodeUrl: rpcUrl });
+
+  try {
+    const result = await provider.callContract({
+      contractAddress: vaultAddress,
+      entrypoint: "max_withdraw",
+      calldata: [ownerAddress],
+    });
+    const arr: string[] = Array.isArray(result)
+      ? result
+      : (result as { result?: string[] })?.result ?? [];
+    const max = parseUint256OrFelt(arr);
+    if (max > 0n) return max;
+  } catch {
+    // continue
+  }
+
+  const shares = await getTrovesVaultShareBalance(
+    rpcUrl,
+    vaultAddress,
+    ownerAddress
+  );
+  if (shares === 0n) return 0n;
+
+  const assetsFromConvert = await getTrovesVaultConvertToAssets(
+    rpcUrl,
+    vaultAddress,
+    shares
+  );
+  if (assetsFromConvert > 0n) return assetsFromConvert;
+
+  try {
+    const [totalSupply, totalAssets] = await Promise.all([
+      getTrovesVaultTotalSupply(rpcUrl, vaultAddress),
+      getTrovesVaultTotalAssets(rpcUrl, vaultAddress),
+    ]);
+    if (totalSupply === 0n) return 0n;
+    return (shares * totalAssets) / totalSupply;
+  } catch {
+    return 0n;
+  }
+}
+
+/**
+ * Withdraw liquidity (assets) from a Troves vault.
+ * ERC4626-style: withdraw(assets, receiver, owner).
+ */
+export async function withdrawFromTrovesVault(
+  account: any,
+  vaultAddress: string,
+  assets: bigint,
+  receiverAddress: string,
+  ownerAddress: string
+): Promise<string> {
+  const a = uint256.bnToUint256(assets);
+  const { transaction_hash } = await account.execute({
+    contractAddress: vaultAddress,
+    entrypoint: "withdraw",
+    calldata: [a.low, a.high, receiverAddress, ownerAddress],
+  });
+  return transaction_hash;
+}
+
+/**
+ * Withdraw (redeem) shares from the Troves Ekubo vault. Vault write: withdraw(shares, receiver) — two params only.
+ * Caller is the owner (msg.sender). Calldata: shares (u256 low/high), receiver.
+ */
+export async function redeemFromTrovesVault(
+  account: any,
+  vaultAddress: string,
+  shares: bigint,
+  receiverAddress: string,
+  _ownerAddress?: string
+): Promise<string> {
+  const s = uint256.bnToUint256(shares);
+  const { transaction_hash } = await account.execute({
+    contractAddress: vaultAddress,
+    entrypoint: "withdraw",
+    calldata: [s.low, s.high, receiverAddress],
   });
   return transaction_hash;
 }

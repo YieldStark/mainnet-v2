@@ -51,6 +51,10 @@ You interact **only with the Vault contract** for each strategy. Addresses match
 
 So for each strategy you use **one vault contract**; users approve that vault to spend both tokens, then call the vault’s deposit once.
 
+**Withdraw:** The vault exposes a **withdraw** entrypoint that takes liquidity (assets) of the position: `withdraw(assets_low, assets_high, receiver, owner)`. Optional **max_withdraw(owner)** returns the maximum withdrawable assets (ERC4626-style). The app uses these for in-app withdraw from the Yield page.
+
+**Redeem:** The vault uses **request_redeem(shares_low, shares_high, receiver, owner)** — this burns shares and returns a redeem id. The app calls this from the Yield page. To receive assets, the user later calls **claim_redeem(id)** (or Troves settles and they claim on app.troves.fi). Same pattern as the example vault (request → claim).
+
 ---
 
 ## Best way to implement

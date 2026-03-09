@@ -21,6 +21,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     { name: "Settings", href: "/dashboard/settings", icon: "/icons/settings.svg" },
   ];
 
+  const mobileFooterLinks = [
+    { name: "Docs", href: "/docs" },
+    { name: "Support", href: "/support" },
+  ];
+
   return (
     <>
       <AnimatePresence>
@@ -43,7 +48,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed left-0 top-0 h-full w-64 bg-[#101D22] z-50 lg:relative lg:translate-x-0 lg:opacity-100 lg:w-50 lg:h-fit lg:rounded-4xl lg:p-6"
+            className="fixed left-0 top-0 h-full w-64 bg-[#101D22] z-50 flex flex-col lg:relative lg:translate-x-0 lg:opacity-100 lg:w-50 lg:h-fit lg:rounded-4xl lg:p-6"
           >
             <div className="flex justify-end p-4 lg:hidden">
               <button
@@ -54,7 +59,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               </button>
             </div>
 
-            <nav className="space-y-2 px-4 lg:px-0">
+            <nav className="space-y-2 px-4 lg:px-0 flex-1">
               {navigationItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
@@ -88,6 +93,27 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 );
               })}
             </nav>
+
+            {/* Mobile only: Docs & Support at bottom of hamburger menu */}
+            <div className="lg:hidden border-t border-gray-800 mt-auto py-4 px-4">
+              <div className="flex flex-wrap gap-3">
+                {mobileFooterLinks.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      onClick={onClose}
+                      className={`text-sm font-medium transition-colors ${
+                        isActive ? "text-[#97FCE4]" : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </motion.aside>
         )}
       </AnimatePresence>

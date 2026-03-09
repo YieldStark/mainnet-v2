@@ -186,9 +186,14 @@ function parseAmount(tx: { calldata?: unknown[] }): string {
   }
 }
 
+/** User address for history: withdraw => receiver (tx.to), else => sender (tx.from). */
+function getUserKeyForTx(tx: Transaction): string {
+  return (tx.type === 'withdraw' ? tx.to : tx.from).toLowerCase()
+}
+
 export function saveLocalTransaction(tx: Transaction) {
   try {
-    const key = `tx_history_${tx.from.toLowerCase()}`
+    const key = `tx_history_${getUserKeyForTx(tx)}`
     const existing = localStorage.getItem(key)
     const txs: Transaction[] = existing ? JSON.parse(existing) : []
 
@@ -203,9 +208,30 @@ export function saveLocalTransaction(tx: Transaction) {
 
 export function getLocalTransactions(userAddress: string): Transaction[] {
   try {
-    const key = `tx_history_${userAddress.toLowerCase()}`
-    const data = localStorage.getItem(key)
-    return data ? JSON.parse(data) : []
+    const addr = userAddress.toLowerCase()
+    const seen = new Set<string>()
+    const txs: Transaction[] = []
+    // Scan all tx_history_* keys so we find the user's txs no matter which key they were saved under
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key || !key.startsWith('tx_history_')) continue
+      const data = localStorage.getItem(key)
+      if (!data) continue
+      try {
+        const arr: Transaction[] = JSON.parse(data)
+        for (const tx of arr) {
+          const from = (tx.from || '').toLowerCase()
+          const to = (tx.to || '').toLowerCase()
+          if ((from === addr || to === addr) && !seen.has(tx.hash)) {
+            seen.add(tx.hash)
+            txs.push(tx)
+          }
+        }
+      } catch {
+        continue
+      }
+    }
+    return txs.sort((a, b) => b.timestamp - a.timestamp)
   } catch (error) {
     console.error('Error reading local transactions:', error)
     return []

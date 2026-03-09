@@ -13,7 +13,7 @@ import { useWalletStore } from "~/providers/wallet-store-provider";
 import { fetchTrovesStrategies } from "~/lib/services/troves";
 import strategiesFallback from "~/providers/strategies.json";
 
-interface TrovesPosition {
+export interface TrovesPosition {
   strategy: TrovesStrategy;
   shareBalance: string;
   shareBalanceRaw: bigint;
@@ -22,11 +22,13 @@ interface TrovesPosition {
 
 interface TrovesPositionsProps {
   onManagePosition?: (strategy: TrovesStrategy) => void;
+  onWithdrawPosition?: (position: TrovesPosition) => void;
   refreshTrigger?: number;
 }
 
 export default function TrovesPositions({
   onManagePosition,
+  onWithdrawPosition,
   refreshTrigger = 0,
 }: TrovesPositionsProps) {
   const [positions, setPositions] = useState<TrovesPosition[]>([]);
@@ -225,15 +227,26 @@ export default function TrovesPositions({
                     <Plus size={16} />
                     Add More
                   </button>
-                  <a
-                    href={`https://app.troves.fi/strategy/${position.strategy.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-700 transition-colors text-sm font-medium"
-                  >
-                    <Minus size={16} />
-                    Withdraw
-                  </a>
+                  {onWithdrawPosition ? (
+                    <button
+                      type="button"
+                      onClick={() => onWithdrawPosition(position)}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-700 transition-colors text-sm font-medium"
+                    >
+                      <Minus size={16} />
+                      Withdraw
+                    </button>
+                  ) : (
+                    <a
+                      href={`https://app.troves.fi/strategy/${position.strategy.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-700 transition-colors text-sm font-medium"
+                    >
+                      <Minus size={16} />
+                      Withdraw
+                    </a>
+                  )}
                 </div>
                 <a
                   href={`https://app.troves.fi/strategy/${position.strategy.id}`}
