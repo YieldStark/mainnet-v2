@@ -1,8 +1,15 @@
 #!/bin/bash
 set -e
 
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+LOG_DIR="$APP_DIR/logs"
+
 echo "Installing YieldStark..."
 echo ""
+
+# Create logs directory
+mkdir -p "$LOG_DIR"
+echo "📁 Logs directory: $LOG_DIR"
 
 # Check if swap exists, if not create it
 if ! swapon --show | grep -q '/swapfile'; then
