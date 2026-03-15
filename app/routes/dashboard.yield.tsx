@@ -18,7 +18,7 @@ import { useNetworkStore } from "~/stores/network-store";
 import { fetchTokenBalance } from "~/lib/utils/fetchTokenBalance";
 import { approveToken, checkAllowance, MAX_UINT256 } from "~/lib/utils/tokenApproval";
 import { saveLocalTransaction } from "~/lib/utils/transactionHistory";
-import { recordDeposit } from "~/lib/utils/recordTransaction";
+import { recordDeposit, recordWithdraw } from "~/lib/utils/recordTransaction";
 import {
   useTrovesStrategies,
 } from "~/hooks/useTrovesStrategies";
@@ -375,15 +375,16 @@ export default function YieldPage() {
       );
 
       // Wait for deposit transaction (with longer timeout and better error handling)
+      let depositConfirmed = true;
       try {
         await account.waitForTransaction(depositTxHash, {
-          retryInterval: 5000, // Check every 5 seconds
+          retryInterval: 5000,
           successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
-          timeout: 180000, // 3 minutes timeout
+          timeout: 180000,
         });
       } catch (error: any) {
-        // If timeout, show partial success message
         if (error?.message?.includes("timeout")) {
+          depositConfirmed = false;
           toast.success(
             <div>
               <div className="font-medium">Deposit submitted!</div>
@@ -399,27 +400,27 @@ export default function YieldPage() {
             </div>,
             { id: "deposit-status", duration: 10000 }
           );
-          // Don't refresh balances yet, just return
-          return;
+        } else {
+          throw error;
         }
-        throw error;
       }
 
-      // Step 4: Success!
-      toast.success(
-        <div>
-          <div className="font-medium">Deposit successful!</div>
-          <a
-            href={`${currentNetwork.explorerUrl}/tx/${depositTxHash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs underline"
-          >
-            View on Explorer
-          </a>
-        </div>,
-        { id: "deposit-status", duration: 5000 }
-      );
+      if (depositConfirmed) {
+        toast.success(
+          <div>
+            <div className="font-medium">Deposit successful!</div>
+            <a
+              href={`${currentNetwork.explorerUrl}/tx/${depositTxHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs underline"
+            >
+              View on Explorer
+            </a>
+          </div>,
+          { id: "deposit-status", duration: 5000 }
+        );
+      }
 
       saveLocalTransaction({
         hash: depositTxHash,
@@ -428,7 +429,7 @@ export default function YieldPage() {
         amount,
         from: operatingAddress,
         to: pool.vTokenAddress,
-        status: "success",
+        status: depositConfirmed ? "success" : "pending",
         blockNumber: 0,
         contractLabel: pool.name,
       });
@@ -442,14 +443,14 @@ export default function YieldPage() {
         tokenSymbol: pool.asset,
         amountRaw: amountBigInt.toString(),
         decimals: depositDecimals,
-        status: 'completed',
+        status: depositConfirmed ? 'completed' : 'pending',
         poolAddress: pool.poolAddress
       }).catch(err => console.error('Failed to record deposit:', err));
 
-      // Wait a moment for blockchain to update
+      if (!depositConfirmed) return;
+
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Refresh balances using the operating address
       const [wbtcBalance, usdcBalance] = await Promise.all([
         fetchTokenBalance(
           rpcUrl,
@@ -471,7 +472,6 @@ export default function YieldPage() {
         USDC: usdcBalance,
       }));
 
-      // Trigger position refresh
       setRefreshPositions((prev) => prev + 1);
     } catch (error: any) {
       console.error("Deposit error:", error);
@@ -629,10 +629,21 @@ export default function YieldPage() {
         contractLabel: pool.name,
       });
 
-      // Wait a moment for blockchain to update
+      const withdrawDecimals = pool.asset === "WBTC" ? 8 : 6;
+      recordWithdraw({
+        transactionHash: withdrawTxHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        userAddress: operatingAddress,
+        tokenAddress: pool.assetAddress,
+        tokenSymbol: pool.asset,
+        amountRaw: amountBigInt.toString(),
+        decimals: withdrawDecimals,
+        status: 'completed',
+        poolAddress: pool.poolAddress
+      }).catch(err => console.error('Failed to record withdrawal:', err));
+
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Refresh balances using the operating address
       const rpcUrl = currentNetwork.rpcUrl;
       const [wbtcBalance, usdcBalance] = await Promise.all([
         fetchTokenBalance(
@@ -770,12 +781,24 @@ export default function YieldPage() {
         timestamp: Math.floor(Date.now() / 1000),
         userAddress: address,
         tokenAddress: token0.address,
-        tokenSymbol: `${token0.symbol}/${token1.symbol}`,
-        amountRaw: `${amount0.toString()},${amount1.toString()}`,
+        tokenSymbol: token0.symbol,
+        amountRaw: amount0.toString(),
         decimals: token0.decimals,
         status: 'completed',
         poolAddress: getVaultAddress(strategy)
-      }).catch(err => console.error('Failed to record deposit:', err));
+      }).catch(err => console.error('Failed to record deposit (token0):', err));
+
+      recordDeposit({
+        transactionHash: txHash + '_1',
+        timestamp: Math.floor(Date.now() / 1000),
+        userAddress: address,
+        tokenAddress: token1.address,
+        tokenSymbol: token1.symbol,
+        amountRaw: amount1.toString(),
+        decimals: token1.decimals,
+        status: 'completed',
+        poolAddress: getVaultAddress(strategy)
+      }).catch(err => console.error('Failed to record deposit (token1):', err));
 
       await new Promise((r) => setTimeout(r, 2000));
       setRefreshPositions((p) => p + 1);
@@ -829,6 +852,22 @@ export default function YieldPage() {
         blockNumber: 0,
         contractLabel: strategy.name,
       });
+
+      const token0 = strategy.depositToken[0];
+      if (token0) {
+        recordWithdraw({
+          transactionHash: txHash,
+          timestamp: Math.floor(Date.now() / 1000),
+          userAddress: address,
+          tokenAddress: token0.address,
+          tokenSymbol: token0.symbol,
+          amountRaw: shares.toString(),
+          decimals: token0.decimals,
+          status: 'completed',
+          poolAddress: vaultAddress
+        }).catch(err => console.error('Failed to record Troves redeem:', err));
+      }
+
       await new Promise((r) => setTimeout(r, 2000));
       setRefreshPositions((p) => p + 1);
     } catch (err: unknown) {

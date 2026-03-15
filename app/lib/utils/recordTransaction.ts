@@ -29,6 +29,36 @@ export async function recordSwap(swapData: {
   }
 }
 
+export async function recordWithdraw(withdrawData: {
+  transactionHash: string;
+  blockNumber?: number;
+  timestamp?: number;
+  userAddress: string;
+  tokenAddress: string;
+  tokenSymbol?: string;
+  amountRaw: string;
+  decimals: number;
+  amountWbtc?: number;
+  amountUsd?: number;
+  amountStrk?: number;
+  status?: string;
+  poolAddress?: string;
+}) {
+  try {
+    const response = await fetch('/api/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(withdrawData)
+    });
+
+    if (!response.ok) {
+      console.error('Failed to record withdrawal:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error recording withdrawal to database:', error);
+  }
+}
+
 export async function recordDeposit(depositData: {
   transactionHash: string;
   blockNumber?: number;

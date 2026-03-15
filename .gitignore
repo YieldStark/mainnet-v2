@@ -4,6 +4,7 @@ node_modules
 .env.local
 .vscode
 *.log
+logs/
 build/
 public/build/
 .cache/

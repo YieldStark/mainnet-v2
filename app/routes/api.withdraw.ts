@@ -1,5 +1,5 @@
 import { data } from "react-router";
-import type { Route } from "./+types/api.deposit";
+import type { Route } from "./+types/api.withdraw";
 import { query } from "~/lib/db";
 import { convertToUsd, convertToWbtc, convertToStrk } from "~/lib/utils/priceConversion";
 
@@ -25,11 +25,11 @@ export async function action({ request }: Route.ActionArgs) {
       status,
       poolAddress
     } = body;
-    
+
     let finalAmountUsd = amountUsd;
     let finalAmountWbtc = amountWbtc;
     let finalAmountStrk = amountStrk;
-    
+
     if (!finalAmountUsd && decimals) {
       finalAmountUsd = await convertToUsd(tokenAddress, amountRaw, decimals);
     }
@@ -44,10 +44,8 @@ export async function action({ request }: Route.ActionArgs) {
       return data({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const txTimestamp = timestamp ? new Date(timestamp * 1000) : new Date();
-
     const result = await query(
-      `INSERT INTO app_db.deposits (
+      `INSERT INTO app_db.withdrawals (
         transaction_hash, block_number, timestamp, user_address,
         token_address, token_symbol, amount_raw,
         amount_wbtc, amount_usd, amount_strk,
@@ -58,7 +56,7 @@ export async function action({ request }: Route.ActionArgs) {
       [
         transactionHash,
         blockNumber || 0,
-        txTimestamp,
+        timestamp ? new Date(timestamp * 1000) : new Date(),
         userAddress,
         tokenAddress,
         tokenSymbol,
@@ -71,25 +69,11 @@ export async function action({ request }: Route.ActionArgs) {
       ]
     );
 
-    if (result.rows[0]?.id) {
-      await query(
-        `INSERT INTO app_db.daily_volume_stats (date, total_deposits_count, total_deposit_amount_wbtc, total_deposit_amount_usd, total_deposit_amount_strk, unique_users_count)
-         VALUES ($1::date, 1, $2, $3, $4, 1)
-         ON CONFLICT (date) DO UPDATE SET
-           total_deposits_count = app_db.daily_volume_stats.total_deposits_count + 1,
-           total_deposit_amount_wbtc = app_db.daily_volume_stats.total_deposit_amount_wbtc + COALESCE($2, 0),
-           total_deposit_amount_usd = app_db.daily_volume_stats.total_deposit_amount_usd + COALESCE($3, 0),
-           total_deposit_amount_strk = app_db.daily_volume_stats.total_deposit_amount_strk + COALESCE($4, 0),
-           updated_at = CURRENT_TIMESTAMP`,
-        [txTimestamp, finalAmountWbtc || 0, finalAmountUsd || 0, finalAmountStrk || 0]
-      ).catch(err => console.error("Failed to update daily_volume_stats for deposit:", err));
-    }
-
     return data({ success: true, id: result.rows[0]?.id });
   } catch (error) {
-    console.error("Error recording deposit:", error);
+    console.error("Error recording withdrawal:", error);
     return data(
-      { error: "Failed to record deposit" },
+      { error: "Failed to record withdrawal" },
       { status: 500 }
     );
   }

@@ -45,6 +45,8 @@ export async function action({ request }: Route.ActionArgs) {
       return data({ error: "Missing required fields" }, { status: 400 });
     }
 
+    const txTimestamp = timestamp ? new Date(timestamp * 1000) : new Date();
+
     const result = await query(
       `INSERT INTO app_db.swaps (
         transaction_hash, block_number, timestamp, user_address,
@@ -57,7 +59,7 @@ export async function action({ request }: Route.ActionArgs) {
       [
         transactionHash,
         blockNumber || 0,
-        timestamp ? new Date(timestamp * 1000) : new Date(),
+        txTimestamp,
         userAddress,
         tokenIn,
         tokenOut,
@@ -70,6 +72,20 @@ export async function action({ request }: Route.ActionArgs) {
         protocol
       ]
     );
+
+    if (result.rows[0]?.id) {
+      await query(
+        `INSERT INTO app_db.daily_volume_stats (date, total_swaps_count, total_swap_volume_wbtc, total_swap_volume_usd, total_swap_volume_strk, unique_users_count)
+         VALUES ($1::date, 1, $2, $3, $4, 1)
+         ON CONFLICT (date) DO UPDATE SET
+           total_swaps_count = app_db.daily_volume_stats.total_swaps_count + 1,
+           total_swap_volume_wbtc = app_db.daily_volume_stats.total_swap_volume_wbtc + COALESCE($2, 0),
+           total_swap_volume_usd = app_db.daily_volume_stats.total_swap_volume_usd + COALESCE($3, 0),
+           total_swap_volume_strk = app_db.daily_volume_stats.total_swap_volume_strk + COALESCE($4, 0),
+           updated_at = CURRENT_TIMESTAMP`,
+        [txTimestamp, finalVolumeWbtc || 0, finalVolumeUsd || 0, finalVolumeStrk || 0]
+      ).catch(err => console.error("Failed to update daily_volume_stats for swap:", err));
+    }
 
     return data({ success: true, id: result.rows[0]?.id });
   } catch (error) {
