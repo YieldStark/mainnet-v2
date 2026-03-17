@@ -126,7 +126,8 @@ export interface TrovesStrategy {
   depositToken: TrovesDepositToken[];
   leverage: number;
   contract: { name: string; address: string }[];
-  contractDetails: { name: string; address: string }[];
+  /** Legacy API shape; live API may only populate `contract` with Vault. */
+  contractDetails?: { name: string; address: string }[];
   tvlUsd: number;
   status?: { number: number; value: string };
   riskFactor?: number;
@@ -142,13 +143,23 @@ export interface TrovesApiResponse {
   lastUpdated?: string;
 }
 
-/** Vault address = contractDetails[0].address for Ekubo CL strategies */
+function findVaultEntry(
+  entries: { name: string; address: string }[] | undefined
+): { address: string } | undefined {
+  return entries?.find((c) => c.name.toLowerCase() === "vault");
+}
+
+/**
+ * Vault address for Ekubo CL strategies.
+ * Troves API historically used `contractDetails`; newer responses put Vault on `contract` only.
+ */
 export function getVaultAddress(strategy: TrovesStrategy): string {
-  const vault = strategy.contractDetails?.find(
-    (c) => c.name.toLowerCase() === "vault"
-  );
-  if (!vault) {
-    throw new Error(`No Vault in contractDetails for strategy ${strategy.id}`);
+  const vault =
+    findVaultEntry(strategy.contractDetails) ?? findVaultEntry(strategy.contract);
+  if (!vault?.address) {
+    throw new Error(
+      `No Vault address for strategy ${strategy.id} (check contract / contractDetails)`
+    );
   }
   return vault.address;
 }
