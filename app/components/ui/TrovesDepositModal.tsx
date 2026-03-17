@@ -135,6 +135,40 @@ export default function TrovesDepositModal({
     }
   };
 
+  /** Equal-value deposit: max USD = min of both sides; fraction 0.5 or 1 */
+  const applyBalanceFraction = (fraction: number) => {
+    if (!wbtcPriceUsd || wbtcPriceUsd <= 0) {
+      setError("Price unavailable — try again in a moment");
+      return;
+    }
+    const b0 = parseFloat(balance0) || 0;
+    const b1 = parseFloat(balance1) || 0;
+    const s0 = token0?.symbol ?? "";
+    const s1 = token1?.symbol ?? "";
+    const usd0 = isStablecoin(s0) ? b0 : isWbtc(s0) ? b0 * wbtcPriceUsd : 0;
+    const usd1 = isStablecoin(s1) ? b1 : isWbtc(s1) ? b1 * wbtcPriceUsd : 0;
+    if (usd0 <= 0 || usd1 <= 0) {
+      setError("Need balance in both tokens for an equal-value deposit");
+      return;
+    }
+    const maxUsd = Math.min(usd0, usd1);
+    const targetUsd = maxUsd * fraction;
+    if (targetUsd <= 0) {
+      setError("Amount too small");
+      return;
+    }
+    setError("");
+    if (isStablecoin(s0) && isWbtc(s1)) {
+      setAmount0(targetUsd.toFixed(6));
+      setAmount1((targetUsd / wbtcPriceUsd).toFixed(8));
+    } else if (isWbtc(s0) && isStablecoin(s1)) {
+      setAmount0((targetUsd / wbtcPriceUsd).toFixed(8));
+      setAmount1(targetUsd.toFixed(6));
+    } else {
+      setError("Quick amounts supported for WBTC + USDC pairs");
+    }
+  };
+
   const handleSubmit = async () => {
     const a0 = amount0.trim();
     const a1 = amount1.trim();
@@ -195,6 +229,24 @@ export default function TrovesDepositModal({
               1 WBTC ≈ $<AnimatedPrice value={wbtcPriceUsd} />
             </p>
           )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-500">Quick fill (equal value):</span>
+            <button
+              type="button"
+              onClick={() => applyBalanceFraction(0.5)}
+              className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-600 text-[#97FCE4] hover:border-[#97FCE4]/50 transition-colors"
+            >
+              50%
+            </button>
+            <button
+              type="button"
+              onClick={() => applyBalanceFraction(1)}
+              className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-600 text-[#97FCE4] hover:border-[#97FCE4]/50 transition-colors"
+            >
+              Max
+            </button>
+          </div>
 
           <div>
             <label className="block text-sm text-gray-400 mb-1">

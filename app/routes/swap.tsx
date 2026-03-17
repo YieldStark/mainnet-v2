@@ -229,6 +229,31 @@ export default function SwapPage() {
     parseUnits(sellAmount.trim(), sellToken.decimals) > 0n &&
     !swapping
 
+  /** Trim trailing zeros for display in the sell input */
+  const formatSellInput = (raw: bigint, decimals: number) => {
+    let s = formatUnits(raw, decimals)
+    if (s.includes('.')) s = s.replace(/\.?0+$/, '')
+    return s || '0'
+  }
+
+  const applySellBalanceFraction = (fraction: number) => {
+    if (!sellToken || !vaultAddress) return
+    const balStr = (balances[sellToken.address] ?? '0').replace(/,/g, '').trim()
+    const whole = parseUnits(balStr, sellToken.decimals)
+    if (whole <= 0n) {
+      toast.error('No balance for this token')
+      return
+    }
+    const pct = Math.min(100, Math.max(0, Math.round(fraction * 100)))
+    const amt = (whole * BigInt(pct)) / 100n
+    if (amt <= 0n) {
+      toast.error('Amount too small')
+      return
+    }
+    setSellAmount(formatSellInput(amt, sellToken.decimals))
+    if (lastSwapTxHash) setLastSwapTxHash(null)
+  }
+
   return (
     <Layout showSidebar={true}>
       <div className="w-full min-h-[calc(100vh-180px)] flex items-center justify-center py-8">
@@ -276,9 +301,27 @@ export default function SwapPage() {
               </button>
             </div>
             {sellToken && vaultAddress && (
-              <p className="text-sm text-gray-500 mt-1">
-                Balance: {balances[sellToken.address] ?? '0'}
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <p className="text-sm text-gray-500">
+                  Balance: {balances[sellToken.address] ?? '0'}
+                </p>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => applySellBalanceFraction(0.5)}
+                    className="text-xs px-2.5 py-1 rounded-lg bg-[#1a2832] border border-gray-600 text-[#97FCE4] hover:border-[#97FCE4]/50 transition-colors"
+                  >
+                    50%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySellBalanceFraction(1)}
+                    className="text-xs px-2.5 py-1 rounded-lg bg-[#1a2832] border border-gray-600 text-[#97FCE4] hover:border-[#97FCE4]/50 transition-colors"
+                  >
+                    Max
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
