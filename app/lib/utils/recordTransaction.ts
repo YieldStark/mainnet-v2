@@ -13,7 +13,7 @@ export async function recordSwap(swapData: {
   volumeStrk?: number;
   poolAddress?: string;
   protocol?: string;
-}) {
+}): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch('/api/swap', {
       method: 'POST',
@@ -22,10 +22,16 @@ export async function recordSwap(swapData: {
     });
 
     if (!response.ok) {
-      console.error('Failed to record swap:', await response.text());
+      const text = await response.text();
+      console.error('Failed to record swap:', text);
+      return { success: false, error: text };
     }
+
+    const result = await response.json();
+    return { success: true };
   } catch (error) {
     console.error('Error recording swap to database:', error);
+    return { success: false, error: String(error) };
   }
 }
 

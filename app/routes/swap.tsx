@@ -194,7 +194,7 @@ export default function SwapPage() {
       const { transactionHash } = await runSwap({ provider: account, quote })
       toast.success('Swap complete')
       
-      recordSwap({
+      const recordResult = await recordSwap({
         transactionHash,
         timestamp: Math.floor(Date.now() / 1000),
         userAddress: vaultAddress,
@@ -205,7 +205,10 @@ export default function SwapPage() {
         decimalsIn: sellToken.decimals,
         poolAddress: quote.routes?.[0]?.name,
         protocol: 'avnu'
-      }).catch(err => console.error('Failed to record swap:', err))
+      })
+      if (!recordResult.success) {
+        toast.error('Swap succeeded but failed to save to database')
+      }
       
       setSellAmount('')
       setQuote(null)
