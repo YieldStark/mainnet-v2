@@ -33,7 +33,7 @@ export async function fetchTokenBalance(
 
     const result: string[] = Array.isArray(raw)
       ? raw
-      : (raw as { result?: string[] })?.result
+      : (raw as { result?: string[] })?.result ?? []
 
     if (!Array.isArray(result) || result.length < 2) {
       console.warn('fetchTokenBalance: Invalid result format', { result, tokenAddress, address })

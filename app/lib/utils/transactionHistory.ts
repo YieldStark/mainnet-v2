@@ -175,11 +175,8 @@ function determineTransactionType(
   return 'transfer'
 }
 
-function parseAmount(tx: { calldata?: unknown[] }): string {
+function parseAmount(_tx: unknown): string {
   try {
-    if (tx.calldata && Array.isArray(tx.calldata)) {
-      return '0'
-    }
     return '0'
   } catch {
     return '0'
