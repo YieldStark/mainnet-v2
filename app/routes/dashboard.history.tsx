@@ -44,6 +44,12 @@ export default function HistoryPage() {
         return <ArrowDownLeft size={16} className="text-green-400" />;
       case "withdraw":
         return <ArrowUpRight size={16} className="text-amber-400" />;
+      case "borrow":
+        return <ArrowDownLeft size={16} className="text-cyan-400" />;
+      case "repay":
+        return <ArrowUpRight size={16} className="text-blue-400" />;
+      case "withdraw_collateral":
+        return <ArrowUpRight size={16} className="text-orange-400" />;
       default:
         return <ArrowRightLeft size={16} className="text-gray-400" />;
     }
@@ -55,6 +61,12 @@ export default function HistoryPage() {
         return "Deposit";
       case "withdraw":
         return "Withdraw";
+      case "borrow":
+        return "Borrow";
+      case "repay":
+        return "Repay";
+      case "withdraw_collateral":
+        return "Withdraw Collateral";
       default:
         return "Transfer";
     }
@@ -66,6 +78,12 @@ export default function HistoryPage() {
         return "bg-green-500/10 text-green-400 border-green-500/20";
       case "withdraw":
         return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+      case "borrow":
+        return "bg-cyan-500/10 text-cyan-400 border-cyan-500/20";
+      case "repay":
+        return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+      case "withdraw_collateral":
+        return "bg-orange-500/10 text-orange-400 border-orange-500/20";
       default:
         return "bg-gray-500/10 text-gray-400 border-gray-500/20";
     }
@@ -78,7 +96,7 @@ export default function HistoryPage() {
           Transaction History
         </h1>
         <p className="text-gray-400">
-          Your WBTC deposits, withdrawals, and transfers
+          Your deposits, withdrawals, transfers, borrows, and repays
         </p>
       </div>
 
@@ -99,7 +117,7 @@ export default function HistoryPage() {
         <div className="bg-[#101D22] rounded-4xl p-8 text-center">
           <p className="text-gray-400 mb-2">No transactions yet</p>
           <p className="text-sm text-gray-500">
-            Deposits, withdrawals, and sends will appear here
+            Deposits, withdrawals, transfers, and loan actions will appear here
           </p>
         </div>
       )}

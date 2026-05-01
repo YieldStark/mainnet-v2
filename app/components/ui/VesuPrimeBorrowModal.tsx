@@ -2,6 +2,9 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { VesuPairCollateralOption, VesuPoolPairSnapshot } from "~/lib/services/vesu";
 
+const SAFE_BORROW_FACTOR = 0.995;
+const MIN_COLLATERAL_VALUE_USD_FOR_BORROW = 20;
+
 interface VesuPrimeBorrowModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -59,6 +62,17 @@ export default function VesuPrimeBorrowModal({
   const currentDebtValueUsd = existingDebtAmount * debtPriceUsd;
   const additionalBorrowValueUsd = Math.max(0, maxDebtValueUsd - currentDebtValueUsd);
   const maxBorrowableDebt = debtPriceUsd > 0 ? additionalBorrowValueUsd / debtPriceUsd : 0;
+  const safeMaxBorrowableDebt = Math.max(0, maxBorrowableDebt * SAFE_BORROW_FACTOR);
+  const safeMaxLtv = Math.max(0, maxLtv * SAFE_BORROW_FACTOR);
+  const nextDebtAfterInput = Math.max(0, existingDebtAmount + enteredBorrow);
+  const requiredTotalCollateralForBorrow =
+    enteredBorrow > 0 && collateralPriceUsd > 0 && debtPriceUsd > 0 && safeMaxLtv > 0
+      ? (nextDebtAfterInput * debtPriceUsd) / (collateralPriceUsd * safeMaxLtv)
+      : 0;
+  const minAdditionalCollateralNeeded = Math.max(
+    0,
+    requiredTotalCollateralForBorrow - existingCollateralAmount
+  );
   const projectedLtv =
     nextCollateral > 0 && collateralPriceUsd > 0
       ? (nextDebt * debtPriceUsd) / (nextCollateral * collateralPriceUsd)
@@ -81,6 +95,23 @@ export default function VesuPrimeBorrowModal({
       setError(`Insufficient ${selectedOption?.symbol || "collateral"} balance`);
       return;
     }
+    if (borrow > 0 && safeMaxBorrowableDebt > 0 && borrow > safeMaxBorrowableDebt) {
+      setError(
+        `Borrow amount is too close to max LTV. Try ${safeMaxBorrowableDebt.toFixed(8)} ${debtSymbol} or less.`
+      );
+      return;
+    }
+    const projectedCollateralValueUsd = nextCollateral * collateralPriceUsd;
+    if (
+      borrow > 0 &&
+      collateralPriceUsd > 0 &&
+      projectedCollateralValueUsd < MIN_COLLATERAL_VALUE_USD_FOR_BORROW
+    ) {
+      setError(
+        `Collateral is too small for borrowing. Supply at least ~$${MIN_COLLATERAL_VALUE_USD_FOR_BORROW.toFixed(0)} of ${selectedOption?.symbol || "collateral"}.`
+      );
+      return;
+    }
     setError("");
     setIsProcessing(true);
     try {
@@ -89,7 +120,14 @@ export default function VesuPrimeBorrowModal({
       setBorrowAmount("");
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Borrow transaction failed");
+      const rawMessage = err instanceof Error ? err.message : "Borrow transaction failed";
+      if (rawMessage.includes("dusty-collateral-balance")) {
+        setError(
+          `Borrow reverted: collateral would be too small ("dusty"). Increase collateral amount and/or reduce borrow size.`
+        );
+      } else {
+        setError(rawMessage);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -159,7 +197,18 @@ export default function VesuPrimeBorrowModal({
           <div>
             <div className="mb-2 flex items-center justify-between text-sm">
               <label className="text-gray-400">Supply collateral ({selectedOption?.symbol})</label>
-              <span className="text-gray-500">Balance: {collateralBalance}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-gray-500">Balance: {collateralBalance}</span>
+                <button
+                  type="button"
+                  onClick={() => setCollateralAmount(minAdditionalCollateralNeeded.toFixed(8))}
+                  className="rounded-full border border-[#97FCE4]/60 bg-[#97FCE4]/10 px-3 py-1.5 text-sm font-semibold text-[#97FCE4] transition-colors hover:bg-[#97FCE4]/20 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={enteredBorrow <= 0 || minAdditionalCollateralNeeded <= 0}
+                  title="Set minimum collateral for current borrow"
+                >
+                  Use min
+                </button>
+              </div>
             </div>
             <input
               type="number"
@@ -170,14 +219,22 @@ export default function VesuPrimeBorrowModal({
               placeholder="0.00"
               className="w-full rounded-xl bg-[#101D22] px-4 py-3 text-white outline-none ring-0 focus:ring-2 focus:ring-[#97FCE4]"
             />
+            {enteredBorrow > 0 && (
+              <p className="mt-2 text-xs text-gray-400">
+                Min collateral needed (safe):{" "}
+                <span className="text-[#97FCE4]">
+                  {minAdditionalCollateralNeeded.toFixed(8)} {selectedOption?.symbol || "asset"}
+                </span>
+              </p>
+            )}
           </div>
           <div>
             <div className="mb-2 flex items-center justify-between text-sm">
               <label className="text-gray-400">Borrow {debtSymbol}</label>
               <button
                 type="button"
-                onClick={() => setBorrowAmount(maxBorrowableDebt.toFixed(8))}
-                className="text-xs font-medium text-[#97FCE4] hover:underline"
+                onClick={() => setBorrowAmount(safeMaxBorrowableDebt.toFixed(8))}
+                className="rounded-full border border-[#97FCE4]/60 bg-[#97FCE4]/10 px-3 py-1.5 text-sm font-semibold text-[#97FCE4] transition-colors hover:bg-[#97FCE4]/20"
               >
                 Use max
               </button>
@@ -192,9 +249,9 @@ export default function VesuPrimeBorrowModal({
               className="w-full rounded-xl bg-[#101D22] px-4 py-3 text-white outline-none ring-0 focus:ring-2 focus:ring-[#97FCE4]"
             />
             <p className="mt-2 text-xs text-gray-400">
-              Max borrowable now:{" "}
+              Max borrowable now (safe):{" "}
               <span className="text-[#97FCE4]">
-                {maxBorrowableDebt.toFixed(8)} {debtSymbol}
+                {safeMaxBorrowableDebt.toFixed(8)} {debtSymbol}
               </span>
             </p>
           </div>

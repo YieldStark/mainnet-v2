@@ -325,9 +325,8 @@ export async function fetchPoolStatsViaRPC(
     // Prefer live Vesu API rate fields.
     if (liveMarket?.stats) {
       const apiUtilization = parseBigIntValue(liveMarket.stats.currentUtilization) * 100;
-      const apiSupplyAPR =
-        parseBigIntValue(liveMarket.stats.btcFiSupplyApr) * 100 ||
-        parseBigIntValue(liveMarket.stats.supplyApy) * 100;
+      // Yield page should display normal/base supply APR only.
+      const apiSupplyAPR = parseBigIntValue(liveMarket.stats.supplyApy) * 100;
       const apiBorrowAPR = parseBigIntValue(liveMarket.stats.borrowApr) * 100;
 
       if (Number.isFinite(apiUtilization) && apiUtilization >= 0) {
