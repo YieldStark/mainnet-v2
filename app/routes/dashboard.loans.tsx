@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { fetchTokenBalance } from "~/lib/utils/fetchTokenBalance";
 import { approveToken, checkAllowance, MAX_UINT256 } from "~/lib/utils/tokenApproval";
@@ -20,6 +20,7 @@ import {
   modifyVesuPosition,
   openRe7WbtcUsdcBorrowPosition,
 } from "~/lib/services/vesu";
+import { saveLocalTransaction, type Transaction } from "~/lib/utils/transactionHistory";
 import VesuBorrowModal from "~/components/ui/VesuBorrowModal";
 import VesuLoanManageModal from "~/components/ui/VesuLoanManageModal";
 import VesuPrimeBorrowModal from "~/components/ui/VesuPrimeBorrowModal";
@@ -56,6 +57,8 @@ export default function LoansPage() {
   const [selectedXbtcCollateral, setSelectedXbtcCollateral] = useState(
     VESU_XBTC_COLLATERAL_OPTIONS[0].address
   );
+  const hasUserSelectedPrimeCollateralRef = useRef(false);
+  const hasUserSelectedXbtcCollateralRef = useRef(false);
   const [xbtcCollateralBalance, setXbtcCollateralBalance] = useState("0");
   const [xbtcLoanPosition, setXbtcLoanPosition] = useState<Awaited<
     ReturnType<typeof getVesuLoanPosition>
@@ -93,7 +96,7 @@ export default function LoansPage() {
   const [isPrimeWithdrawOpen, setIsPrimeWithdrawOpen] = useState(false);
   const [isXbtcRepayOpen, setIsXbtcRepayOpen] = useState(false);
   const [isXbtcWithdrawOpen, setIsXbtcWithdrawOpen] = useState(false);
-  const [loanViewMode, setLoanViewMode] = useState<LoanViewMode>("borrow-other");
+  const [loanViewMode, setLoanViewMode] = useState<LoanViewMode>("borrow-btc");
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const marketData = useMemo(() => {
@@ -159,6 +162,89 @@ export default function LoansPage() {
   const selectedXbtcSupplyApr = useMemo(() => {
     return xbtcSupplyAprByAsset[selectedXbtcOption.address.toLowerCase()] || "—";
   }, [xbtcSupplyAprByAsset, selectedXbtcOption.address]);
+
+  const saveLoanHistory = (
+    hash: string,
+    type: Transaction["type"],
+    amount: string,
+    contractLabel: string,
+    to: string
+  ) => {
+    if (!wallet?.address) return;
+    saveLocalTransaction({
+      hash,
+      timestamp: Math.floor(Date.now() / 1000),
+      type,
+      amount,
+      from: wallet.address,
+      to,
+      status: "success",
+      blockNumber: 0,
+      contractLabel,
+    });
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      if (!address || hasUserSelectedPrimeCollateralRef.current) return;
+      try {
+        const positions = await Promise.all(
+          VESU_PRIME_COLLATERAL_OPTIONS.map(async (option) => {
+            const position = await getVesuLoanPosition(
+              currentNetwork.rpcUrl,
+              VESU_PRIME_POOL.poolAddress,
+              option.address,
+              VESU_PRIME_POOL.debtAsset,
+              address,
+              option.decimals,
+              WBTC_DECIMALS
+            );
+            return { optionAddress: option.address, position };
+          })
+        );
+        const active = positions.find(
+          ({ position }) => position.collateralRaw > 0n || position.debtRaw > 0n
+        );
+        if (active) {
+          setSelectedPrimeCollateral(active.optionAddress);
+        }
+      } catch (error) {
+        console.error("Failed to determine active Prime collateral pair:", error);
+      }
+    };
+    void run();
+  }, [address, currentNetwork.rpcUrl, refreshNonce]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!address || hasUserSelectedXbtcCollateralRef.current) return;
+      try {
+        const positions = await Promise.all(
+          VESU_XBTC_COLLATERAL_OPTIONS.map(async (option) => {
+            const position = await getVesuLoanPosition(
+              currentNetwork.rpcUrl,
+              VESU_RE7_XBTC_POOL.poolAddress,
+              option.address,
+              VESU_RE7_XBTC_POOL.debtAsset,
+              address,
+              option.decimals,
+              WBTC_DECIMALS
+            );
+            return { optionAddress: option.address, position };
+          })
+        );
+        const active = positions.find(
+          ({ position }) => position.collateralRaw > 0n || position.debtRaw > 0n
+        );
+        if (active) {
+          setSelectedXbtcCollateral(active.optionAddress);
+        }
+      } catch (error) {
+        console.error("Failed to determine active Re7 xBTC collateral pair:", error);
+      }
+    };
+    void run();
+  }, [address, currentNetwork.rpcUrl, refreshNonce]);
 
   useEffect(() => {
     const run = async () => {
@@ -564,6 +650,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "borrow",
+      `${collateralAmount || "0"} WBTC / ${borrowAmount || "0"} USDC`,
+      "Vesu Re7 USDC Core",
+      VESU_RE7_USDC_CORE_BORROW.poolAddress
+    );
 
     toast.success("Borrow position updated successfully", { id: "borrow-status" });
     setRefreshNonce((v) => v + 1);
@@ -623,6 +716,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "borrow",
+      `${collateralAmount || "0"} WBTC / ${borrowAmount || "0"} USDT`,
+      "Vesu Prime WBTC/USDT",
+      VESU_PRIME_WBTC_USDT_BORROW.poolAddress
+    );
     toast.success("Prime WBTC/USDT position updated", { id: "prime-usdt-borrow-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -671,6 +771,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "repay",
+      `${amount || "0"} USDT`,
+      "Vesu Prime WBTC/USDT",
+      VESU_PRIME_WBTC_USDT_BORROW.poolAddress
+    );
     toast.success("Prime WBTC/USDT repay successful", { id: "prime-usdt-repay-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -697,6 +804,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "withdraw_collateral",
+      `${amount || "0"} WBTC`,
+      "Vesu Prime WBTC/USDT",
+      VESU_PRIME_WBTC_USDT_BORROW.poolAddress
+    );
     toast.success("Prime WBTC collateral withdrawn", { id: "prime-usdt-withdraw-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -755,6 +869,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "borrow",
+      `${collateralAmount || "0"} WBTC / ${borrowAmount || "0"} USDC`,
+      "Vesu Re7 USDC Prime",
+      VESU_RE7_USDC_PRIME_BORROW.poolAddress
+    );
     toast.success("Re7 USDC Prime position updated", { id: "re7-usdc-prime-borrow-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -803,6 +924,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "repay",
+      `${amount || "0"} USDC`,
+      "Vesu Re7 USDC Prime",
+      VESU_RE7_USDC_PRIME_BORROW.poolAddress
+    );
     toast.success("Re7 USDC Prime repay successful", { id: "re7-usdc-prime-repay-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -829,6 +957,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "withdraw_collateral",
+      `${amount || "0"} WBTC`,
+      "Vesu Re7 USDC Prime",
+      VESU_RE7_USDC_PRIME_BORROW.poolAddress
+    );
     toast.success("Re7 USDC Prime collateral withdrawn", { id: "re7-usdc-prime-withdraw-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -885,6 +1020,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "borrow",
+      `${collateralAmount || "0"} ${selectedPrimeOption.symbol} / ${borrowAmount || "0"} WBTC`,
+      "Vesu Prime Borrow WBTC",
+      VESU_PRIME_POOL.poolAddress
+    );
     toast.success("Vesu Prime position updated", { id: "prime-borrow-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -931,6 +1073,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "repay",
+      `${amount || "0"} WBTC`,
+      "Vesu Prime Borrow WBTC",
+      VESU_PRIME_POOL.poolAddress
+    );
     toast.success("Vesu Prime repay successful", { id: "prime-repay-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -959,6 +1108,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "withdraw_collateral",
+      `${amount || "0"} ${selectedPrimeOption.symbol}`,
+      "Vesu Prime Borrow WBTC",
+      VESU_PRIME_POOL.poolAddress
+    );
     toast.success("Vesu Prime collateral withdrawn", { id: "prime-withdraw-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -1015,6 +1171,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "borrow",
+      `${collateralAmount || "0"} ${selectedXbtcOption.symbol} / ${borrowAmount || "0"} WBTC`,
+      "Vesu Re7 xBTC",
+      VESU_RE7_XBTC_POOL.poolAddress
+    );
     toast.success("Re7 xBTC position updated", { id: "xbtc-borrow-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -1061,6 +1224,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "repay",
+      `${amount || "0"} WBTC`,
+      "Vesu Re7 xBTC",
+      VESU_RE7_XBTC_POOL.poolAddress
+    );
     toast.success("Re7 xBTC repay successful", { id: "xbtc-repay-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -1089,8 +1259,25 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "withdraw_collateral",
+      `${amount || "0"} ${selectedXbtcOption.symbol}`,
+      "Vesu Re7 xBTC",
+      VESU_RE7_XBTC_POOL.poolAddress
+    );
     toast.success("Re7 xBTC collateral withdrawn", { id: "xbtc-withdraw-status" });
     setRefreshNonce((v) => v + 1);
+  };
+
+  const handleSelectPrimeCollateral = (collateralAddress: string) => {
+    hasUserSelectedPrimeCollateralRef.current = true;
+    setSelectedPrimeCollateral(collateralAddress);
+  };
+
+  const handleSelectXbtcCollateral = (collateralAddress: string) => {
+    hasUserSelectedXbtcCollateralRef.current = true;
+    setSelectedXbtcCollateral(collateralAddress);
   };
 
   const handleRepay = async (amount: string) => {
@@ -1135,6 +1322,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "repay",
+      `${amount || "0"} USDC`,
+      "Vesu Re7 USDC Core",
+      VESU_RE7_USDC_CORE_BORROW.poolAddress
+    );
     toast.success("Repay successful", { id: "repay-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -1161,6 +1355,13 @@ export default function LoansPage() {
       successStates: ["ACCEPTED_ON_L2", "ACCEPTED_ON_L1"],
       timeout: 180000,
     });
+    saveLoanHistory(
+      txHash,
+      "withdraw_collateral",
+      `${amount || "0"} WBTC`,
+      "Vesu Re7 USDC Core",
+      VESU_RE7_USDC_CORE_BORROW.poolAddress
+    );
     toast.success("Collateral withdrawn", { id: "withdraw-collateral-status" });
     setRefreshNonce((v) => v + 1);
   };
@@ -1253,7 +1454,7 @@ export default function LoansPage() {
             </div>
           </div>
           <div className="rounded-2xl bg-[#0F1A1F] p-4">
-            <div className="text-gray-400">Liquidation Price (WBTC)</div>
+            <div className="text-gray-400">Liquidation Price ({selectedPrimeOption.symbol})</div>
             <div className="mt-1 text-white">
               $
               {loanPosition?.liquidationPriceUsd
@@ -1352,7 +1553,7 @@ export default function LoansPage() {
             </div>
           </div>
           <div className="rounded-2xl bg-[#0F1A1F] p-4">
-            <div className="text-gray-400">Liquidation Price (WBTC)</div>
+            <div className="text-gray-400">Liquidation Price ({selectedXbtcOption.symbol})</div>
             <div className="mt-1 text-white">
               $
               {re7UsdcPrimePosition?.liquidationPriceUsd
@@ -1517,6 +1718,21 @@ export default function LoansPage() {
           </div>
         </div>
 
+        <div className="mb-6 rounded-2xl bg-[#0F1A1F] p-4">
+          <div className="mb-2 text-sm font-medium text-gray-300">Collateral Asset</div>
+          <select
+            value={selectedPrimeOption.address}
+            onChange={(e) => handleSelectPrimeCollateral(e.target.value)}
+            className="w-full rounded-xl border border-[#97FCE4]/40 bg-[#101D22] px-4 py-3 text-base font-semibold text-white outline-none transition-colors focus:border-[#97FCE4] focus:ring-2 focus:ring-[#97FCE4]/30 md:w-64"
+          >
+            {VESU_PRIME_COLLATERAL_OPTIONS.map((option) => (
+              <option key={option.address} value={option.address}>
+                {option.symbol}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="mb-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
           <div className="rounded-2xl bg-[#0F1A1F] p-4">
             <div className="text-gray-400">Selected pair</div>
@@ -1551,22 +1767,9 @@ export default function LoansPage() {
         <div className="mb-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
           <div className="rounded-2xl bg-[#0F1A1F] p-4">
             <div className="mb-1 text-gray-400">Supplied Collateral</div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-white">
-                {primeLoanPosition?.collateralAmount?.toFixed(6) || "0.000000"}{" "}
-                {selectedPrimeOption.symbol}
-              </div>
-              <select
-                value={selectedPrimeOption.address}
-                onChange={(e) => setSelectedPrimeCollateral(e.target.value)}
-                className="rounded-lg border border-gray-700 bg-[#101D22] px-2 py-1 text-xs text-white outline-none"
-              >
-                {VESU_PRIME_COLLATERAL_OPTIONS.map((option) => (
-                  <option key={option.address} value={option.address}>
-                    {option.symbol}
-                  </option>
-                ))}
-              </select>
+            <div className="text-white">
+              {primeLoanPosition?.collateralAmount?.toFixed(6) || "0.000000"}{" "}
+              {selectedPrimeOption.symbol}
             </div>
           </div>
           <div className="rounded-2xl bg-[#0F1A1F] p-4">
@@ -1648,6 +1851,21 @@ export default function LoansPage() {
           </div>
         </div>
 
+        <div className="mb-6 rounded-2xl bg-[#0F1A1F] p-4">
+          <div className="mb-2 text-sm font-medium text-gray-300">Collateral Asset</div>
+          <select
+            value={selectedXbtcOption.address}
+            onChange={(e) => handleSelectXbtcCollateral(e.target.value)}
+            className="w-full rounded-xl border border-[#97FCE4]/40 bg-[#101D22] px-4 py-3 text-base font-semibold text-white outline-none transition-colors focus:border-[#97FCE4] focus:ring-2 focus:ring-[#97FCE4]/30 md:w-64"
+          >
+            {VESU_XBTC_COLLATERAL_OPTIONS.map((option) => (
+              <option key={option.address} value={option.address}>
+                {option.symbol}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="mb-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
           <div className="rounded-2xl bg-[#0F1A1F] p-4">
             <div className="text-gray-400">Selected pair</div>
@@ -1682,22 +1900,9 @@ export default function LoansPage() {
         <div className="mb-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
           <div className="rounded-2xl bg-[#0F1A1F] p-4">
             <div className="mb-1 text-gray-400">Supplied Collateral</div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-white">
-                {xbtcLoanPosition?.collateralAmount?.toFixed(6) || "0.000000"}{" "}
-                {selectedXbtcOption.symbol}
-              </div>
-              <select
-                value={selectedXbtcOption.address}
-                onChange={(e) => setSelectedXbtcCollateral(e.target.value)}
-                className="rounded-lg border border-gray-700 bg-[#101D22] px-2 py-1 text-xs text-white outline-none"
-              >
-                {VESU_XBTC_COLLATERAL_OPTIONS.map((option) => (
-                  <option key={option.address} value={option.address}>
-                    {option.symbol}
-                  </option>
-                ))}
-              </select>
+            <div className="text-white">
+              {xbtcLoanPosition?.collateralAmount?.toFixed(6) || "0.000000"}{" "}
+              {selectedXbtcOption.symbol}
             </div>
           </div>
           <div className="rounded-2xl bg-[#0F1A1F] p-4">
@@ -1877,7 +2082,7 @@ export default function LoansPage() {
         currentSupplyApr={selectedPrimeSupplyApr}
         pairOptions={VESU_PRIME_COLLATERAL_OPTIONS}
         selectedCollateral={selectedPrimeOption.address}
-        onSelectCollateral={setSelectedPrimeCollateral}
+        onSelectCollateral={handleSelectPrimeCollateral}
         collateralBalance={primeCollateralBalance}
         currentBorrowApr={primeBorrowApr}
         pairStats={selectedPrimePair}
@@ -1912,7 +2117,7 @@ export default function LoansPage() {
         title="Re7 xBTC Borrow WBTC"
         pairOptions={VESU_XBTC_COLLATERAL_OPTIONS}
         selectedCollateral={selectedXbtcOption.address}
-        onSelectCollateral={setSelectedXbtcCollateral}
+        onSelectCollateral={handleSelectXbtcCollateral}
         collateralBalance={xbtcCollateralBalance}
         currentBorrowApr={xbtcBorrowApr}
         currentSupplyApr={selectedXbtcSupplyApr}
