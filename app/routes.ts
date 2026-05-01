@@ -11,6 +11,7 @@ export default [
   route("dashboard", "routes/dashboard-layout.tsx", [
     index("routes/dashboard.index.tsx"),
     route("yield", "routes/dashboard.yield.tsx"),
+    route("loans", "routes/dashboard.loans.tsx"),
     route("history", "routes/dashboard.history.tsx"),
     route("settings", "routes/dashboard.settings.tsx"),
     route("staking", "routes/dashboard.staking.tsx"),

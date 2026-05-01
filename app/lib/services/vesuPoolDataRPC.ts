@@ -2,7 +2,7 @@
 import { hash, num } from "starknet";
 import { VESU_CONTRACTS, VESU_VTOKENS } from "./vesu";
 
-const SCALE = BigInt(10 ** 18);
+const VESU_API_BASE_URL = "https://api.vesu.xyz";
 
 interface PoolStats {
   apy: string;
@@ -12,6 +12,65 @@ interface PoolStats {
   utilization: string;
   totalSupply: string;
   totalBorrow: string;
+}
+
+interface BigIntValue {
+  value: string;
+  decimals: number;
+}
+
+interface VesuMarketStats {
+  totalSupplied?: BigIntValue;
+  totalDebt?: BigIntValue;
+  currentUtilization?: BigIntValue;
+  supplyApy?: BigIntValue;
+  btcFiSupplyApr?: BigIntValue | null;
+  borrowApr?: BigIntValue;
+}
+
+interface VesuMarket {
+  pool?: { id?: string };
+  vToken?: { address?: string };
+  stats?: VesuMarketStats;
+}
+
+function normalizeAddress(address: string): string {
+  const withoutPrefix = address.toLowerCase().replace(/^0x/, "");
+  const trimmed = withoutPrefix.replace(/^0+/, "");
+  return `0x${trimmed || "0"}`;
+}
+
+function makeMarketKey(poolAddress: string, vTokenAddress: string): string {
+  return `${normalizeAddress(poolAddress)}|${normalizeAddress(vTokenAddress)}`;
+}
+
+function parseBigIntValue(value?: BigIntValue | null): number {
+  if (!value?.value) return 0;
+  return Number(value.value) / Math.pow(10, value.decimals);
+}
+
+async function fetchVesuMarkets(): Promise<Map<string, VesuMarket>> {
+  try {
+    const response = await fetch(`${VESU_API_BASE_URL}/markets`);
+    if (!response.ok) {
+      throw new Error(`Vesu API returned ${response.status}`);
+    }
+    const payload = await response.json();
+    const markets: VesuMarket[] = Array.isArray(payload?.data) ? payload.data : [];
+    const byKey = new Map<string, VesuMarket>();
+
+    for (const market of markets) {
+      const poolId = market.pool?.id;
+      const vTokenAddress = market.vToken?.address;
+      if (!poolId || !vTokenAddress) continue;
+      byKey.set(makeMarketKey(poolId, vTokenAddress), market);
+    }
+
+    return byKey;
+  } catch (error) {
+    console.error("Failed to fetch Vesu markets API:", error);
+    return new Map();
+  }
 }
 
 /**
@@ -242,7 +301,8 @@ export async function fetchPoolStatsViaRPC(
   vTokenAddress: string,
   poolAddress: string,
   assetAddress: string,
-  decimals: number = 18
+  decimals: number = 18,
+  liveMarket?: VesuMarket
 ): Promise<PoolStats> {
   try {
     // Fetch total assets, total supply, and asset config in parallel
@@ -259,22 +319,39 @@ export async function fetchPoolStatsViaRPC(
 
     // Calculate utilization and APY from asset config
     let utilizationRate = 65; // Default fallback
-    let supplyAPY = 5.0; // Default fallback
+    let supplyAPR = 5.0; // Default fallback
+    let borrowAPR = 6.0; // Default fallback
     
-    if (assetConfig && assetConfig.totalCollateralShares > 0n) {
+    // Prefer live Vesu API rate fields.
+    if (liveMarket?.stats) {
+      const apiUtilization = parseBigIntValue(liveMarket.stats.currentUtilization) * 100;
+      const apiSupplyAPR =
+        parseBigIntValue(liveMarket.stats.btcFiSupplyApr) * 100 ||
+        parseBigIntValue(liveMarket.stats.supplyApy) * 100;
+      const apiBorrowAPR = parseBigIntValue(liveMarket.stats.borrowApr) * 100;
+
+      if (Number.isFinite(apiUtilization) && apiUtilization >= 0) {
+        utilizationRate = apiUtilization;
+      }
+      if (Number.isFinite(apiSupplyAPR) && apiSupplyAPR >= 0) {
+        supplyAPR = apiSupplyAPR;
+      }
+      if (Number.isFinite(apiBorrowAPR) && apiBorrowAPR >= 0) {
+        borrowAPR = apiBorrowAPR;
+      }
+    } else if (assetConfig && assetConfig.totalCollateralShares > 0n) {
       const utilization = Number(assetConfig.totalNominalDebt) / Number(assetConfig.totalCollateralShares);
       utilizationRate = utilization * 100;
-      supplyAPY = calculateAPYFromUtilization(utilizationRate);
+      supplyAPR = calculateAPYFromUtilization(utilizationRate);
+      borrowAPR = supplyAPR * 1.2;
     }
 
     // If we got real data, use it
     if (totalAssets > 0n) {
-      const borrowAPY = supplyAPY * 1.2; // Borrow rate ~20% higher than supply
-      
       return {
-        apy: supplyAPY.toFixed(2) + "%",
-        supplyAPY: supplyAPY.toFixed(2) + "%",
-        borrowAPY: borrowAPY.toFixed(2) + "%",
+        apy: supplyAPR.toFixed(2) + "%",
+        supplyAPY: supplyAPR.toFixed(2) + "%",
+        borrowAPY: borrowAPR.toFixed(2) + "%",
         tvl: formatTVL(tvlInAsset),
         utilization: utilizationRate.toFixed(2) + "%",
         totalSupply: tvlInAsset.toFixed(4),
@@ -311,6 +388,7 @@ export async function fetchPoolStatsViaRPC(
  * Fetch all pool data using RPC with real-time APY calculation
  */
 export async function fetchAllPoolsViaRPC(rpcUrl: string) {
+  const liveMarketsByKey = await fetchVesuMarkets();
   const pools = [
     {
       id: "re7-xbtc",
@@ -327,11 +405,18 @@ export async function fetchAllPoolsViaRPC(rpcUrl: string) {
       decimals: 6,
     },
     {
+      id: "re7-wbtc-core",
+      poolAddress: VESU_CONTRACTS.RE7_USDC_CORE,
+      vTokenAddress: VESU_VTOKENS.WBTC_CORE,
+      assetAddress: "0x03Fe2b97C1Fd336E750087D68B9b867997Fd64a2661fF3ca5A7C771641e8e7AC", // WBTC
+      decimals: 8,
+    },
+    {
       id: "re7-usdc-prime",
       poolAddress: VESU_CONTRACTS.RE7_USDC_PRIME,
       vTokenAddress: VESU_VTOKENS.USDC_PRIME,
-      assetAddress: "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8", // USDC
-      decimals: 6,
+      assetAddress: "0x03Fe2b97C1Fd336E750087D68B9b867997Fd64a2661fF3ca5A7C771641e8e7AC", // WBTC
+      decimals: 8,
     },
     {
       id: "re7-usdc-stable",
@@ -343,18 +428,22 @@ export async function fetchAllPoolsViaRPC(rpcUrl: string) {
   ];
 
   const results = await Promise.allSettled(
-    pools.map((pool) =>
-      fetchPoolStatsViaRPC(
+    pools.map((pool) => {
+      const liveMarket = liveMarketsByKey.get(
+        makeMarketKey(pool.poolAddress, pool.vTokenAddress)
+      );
+      return fetchPoolStatsViaRPC(
         rpcUrl,
         pool.vTokenAddress,
         pool.poolAddress,
         pool.assetAddress,
-        pool.decimals
+        pool.decimals,
+        liveMarket
       ).then((data) => ({
         ...pool,
         ...data,
-      }))
-    )
+      }));
+    })
   );
 
   return results.map((result, index) => {

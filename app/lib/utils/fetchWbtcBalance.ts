@@ -34,7 +34,7 @@ export async function fetchWbtcBalance(
     // Starknet.js may return string[] or (for some RPC wrappers) { result: string[] }
     const result: string[] = Array.isArray(raw)
       ? raw
-      : (raw as { result?: string[] })?.result
+      : (raw as { result?: string[] })?.result ?? []
 
     if (!Array.isArray(result) || result.length < 2) {
       return 0

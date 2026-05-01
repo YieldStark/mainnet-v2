@@ -270,7 +270,7 @@ const CurrentPositions = () => {
                     </defs>
                     <Tooltip
                       contentStyle={{ backgroundColor: '#0F1A1F', border: '1px solid #333' }}
-                      formatter={(value: number) => [formatUsd(Number(value)), 'Value']}
+                      formatter={(value) => [formatUsd(Number(value ?? 0)), 'Value']}
                       labelFormatter={() => 'Growth'}
                     />
                     <Area
