@@ -12,6 +12,9 @@ import {
   VESU_PRIME_COLLATERAL_OPTIONS,
   VESU_PRIME_POOL,
   VESU_RE7_XBTC_POOL,
+  VESU_RE7_XBTC_LBTC_POOL,
+  VESU_RE7_XBTC_TBTC_POOL,
+  VESU_RE7_XBTC_SOLVBTC_POOL,
   VESU_XBTC_COLLATERAL_OPTIONS,
   fetchVesuPoolPairs,
   getVesuLoanPosition,
@@ -24,6 +27,7 @@ import { saveLocalTransaction, type Transaction } from "~/lib/utils/transactionH
 import VesuBorrowModal from "~/components/ui/VesuBorrowModal";
 import VesuLoanManageModal from "~/components/ui/VesuLoanManageModal";
 import VesuPrimeBorrowModal from "~/components/ui/VesuPrimeBorrowModal";
+import Re7XbtcBorrowMarket from "~/components/dashboard/Re7XbtcBorrowMarket";
 
 const WBTC_DECIMALS = 8;
 const USDC_DECIMALS = 6;
@@ -1966,6 +1970,42 @@ export default function LoansPage() {
           </button>
         </div>
       </div>
+
+      <Re7XbtcBorrowMarket
+        title="Re7 xBTC - Borrow LBTC"
+        description="Supply an xBTC collateral and borrow LBTC from the Re7 xBTC pool."
+        poolAddress={VESU_RE7_XBTC_LBTC_POOL.poolAddress}
+        debtAsset={VESU_RE7_XBTC_LBTC_POOL.debtAsset}
+        debtSymbol="LBTC"
+        debtDecimals={VESU_RE7_XBTC_LBTC_POOL.debtDecimals}
+        collateralOptions={VESU_XBTC_COLLATERAL_OPTIONS}
+        refreshNonce={refreshNonce}
+        onTxComplete={() => setRefreshNonce((v) => v + 1)}
+      />
+
+      <Re7XbtcBorrowMarket
+        title="Re7 xBTC - Borrow tBTC"
+        description="Supply an xBTC collateral and borrow tBTC from the Re7 xBTC pool."
+        poolAddress={VESU_RE7_XBTC_TBTC_POOL.poolAddress}
+        debtAsset={VESU_RE7_XBTC_TBTC_POOL.debtAsset}
+        debtSymbol="tBTC"
+        debtDecimals={VESU_RE7_XBTC_TBTC_POOL.debtDecimals}
+        collateralOptions={VESU_XBTC_COLLATERAL_OPTIONS}
+        refreshNonce={refreshNonce}
+        onTxComplete={() => setRefreshNonce((v) => v + 1)}
+      />
+
+      <Re7XbtcBorrowMarket
+        title="Re7 xBTC - Borrow SolvBTC"
+        description="Supply an xBTC collateral and borrow SolvBTC from the Re7 xBTC pool."
+        poolAddress={VESU_RE7_XBTC_SOLVBTC_POOL.poolAddress}
+        debtAsset={VESU_RE7_XBTC_SOLVBTC_POOL.debtAsset}
+        debtSymbol="SolvBTC"
+        debtDecimals={VESU_RE7_XBTC_SOLVBTC_POOL.debtDecimals}
+        collateralOptions={VESU_XBTC_COLLATERAL_OPTIONS}
+        refreshNonce={refreshNonce}
+        onTxComplete={() => setRefreshNonce((v) => v + 1)}
+      />
         </>
       )}
 

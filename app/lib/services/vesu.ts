@@ -1,6 +1,12 @@
 // Vesu V2 Lending Service
 import { CallData, RpcProvider, uint256 } from "starknet";
-import { WBTC_ADDRESS, USDC_ADDRESS } from "../utils/Constants";
+import {
+  WBTC_ADDRESS,
+  USDC_ADDRESS,
+  LBTC_ADDRESS,
+  TBTC_ADDRESS,
+  SOLVBTC_ADDRESS,
+} from "../utils/Constants";
 
 // Vesu V2 Contract Addresses (Mainnet)
 export const VESU_CONTRACTS = {
@@ -55,6 +61,32 @@ export const VESU_PRIME_POOL = {
 export const VESU_RE7_XBTC_POOL = {
   poolAddress: VESU_CONTRACTS.RE7_XBTC,
   debtAsset: WBTC_ADDRESS,
+  oracle:
+    "0x000fe4bfb1b353ba51eb34dff963017f94af5a5cf8bdf3dfc191c504657f3c05",
+} as const;
+
+// Re7 xBTC borrow markets for BTCfi debt assets (borrow LBTC / tBTC / SolvBTC
+// against xBTC collateral). Same pool contract, different debt asset.
+export const VESU_RE7_XBTC_LBTC_POOL = {
+  poolAddress: VESU_CONTRACTS.RE7_XBTC,
+  debtAsset: LBTC_ADDRESS,
+  debtDecimals: 8,
+  oracle:
+    "0x000fe4bfb1b353ba51eb34dff963017f94af5a5cf8bdf3dfc191c504657f3c05",
+} as const;
+
+export const VESU_RE7_XBTC_TBTC_POOL = {
+  poolAddress: VESU_CONTRACTS.RE7_XBTC,
+  debtAsset: TBTC_ADDRESS,
+  debtDecimals: 18,
+  oracle:
+    "0x000fe4bfb1b353ba51eb34dff963017f94af5a5cf8bdf3dfc191c504657f3c05",
+} as const;
+
+export const VESU_RE7_XBTC_SOLVBTC_POOL = {
+  poolAddress: VESU_CONTRACTS.RE7_XBTC,
+  debtAsset: SOLVBTC_ADDRESS,
+  debtDecimals: 18,
   oracle:
     "0x000fe4bfb1b353ba51eb34dff963017f94af5a5cf8bdf3dfc191c504657f3c05",
 } as const;
@@ -145,16 +177,26 @@ export const VESU_VTOKENS = {
   TBTC_XBTC: "0x04cbe8b13ebadd744254b09a40f4395f580e8a4a30acb2653849f61d12bfa039", // vtBTC-Re7xBTC
   XSBTC_XBTC: "0x076ea5335932dafb727f31dec684e75169e7a582478d681fe3a73494669940fb", // vxsBTC-Re7xBTC
   LBTC_XBTC: "0x073476ed5b0d781182ede4c806241a93cb47cb00b6de354855a1fc6233a13b35", // vLBTC-Re7xBTC
+  SOLVBTC_XBTC: "0x0590117befc944f23b39ca5b0401e6aaa7834e90f2eb284baa2bfc475bd66190", // vSolvBTC-Re7xBTC
   WBTC_CORE: "0x017bd1b103823b17876f4f9ebc3edc61a34445e17f2ca0ca0e94ee9653ccdf0b", // vWBTC-Re7USDCCore
 } as const;
+
+export type VesuLendAssetSymbol =
+  | "WBTC"
+  | "USDC"
+  | "LBTC"
+  | "tBTC"
+  | "SolvBTC";
 
 export interface VesuPool {
   id: string;
   name: string;
   poolAddress: string;
   vTokenAddress: string;
-  asset: "WBTC" | "USDC";
+  asset: VesuLendAssetSymbol;
   assetAddress: string;
+  /** Underlying asset decimals (WBTC/LBTC = 8, USDC = 6, tBTC/SolvBTC = 18). */
+  decimals: number;
   apy: string;
   tvl: string;
   description: string;
@@ -213,6 +255,7 @@ export const VESU_LENDING_POOLS: VesuPool[] = [
     vTokenAddress: VESU_VTOKENS.WBTC_CORE, // Correct vToken for WBTC
     asset: "WBTC",
     assetAddress: WBTC_ADDRESS,
+    decimals: 8,
     apy: "4.5%", // This should be fetched dynamically
     tvl: "$2.5M", // This should be fetched dynamically
     description: "Earn yield by lending WBTC to the Re7 USDC Core pool on Vesu",
@@ -225,6 +268,7 @@ export const VESU_LENDING_POOLS: VesuPool[] = [
     vTokenAddress: VESU_VTOKENS.USDC_CORE,
     asset: "USDC",
     assetAddress: USDC_ADDRESS,
+    decimals: 6,
     apy: "8.2%", // This should be fetched dynamically
     tvl: "$5.8M", // This should be fetched dynamically
     description: "Earn yield by lending USDC to the Re7 USDC Core pool on Vesu",
@@ -237,6 +281,7 @@ export const VESU_LENDING_POOLS: VesuPool[] = [
     vTokenAddress: VESU_VTOKENS.USDC_PRIME, // This is actually vWBTC for USDC Prime pool
     asset: "WBTC",
     assetAddress: WBTC_ADDRESS,
+    decimals: 8,
     apy: "12.5%", // This should be fetched dynamically
     tvl: "$3.2M", // This should be fetched dynamically
     description: "Earn higher yield by lending WBTC as collateral to the Re7 USDC Prime pool on Vesu",
@@ -249,10 +294,50 @@ export const VESU_LENDING_POOLS: VesuPool[] = [
     vTokenAddress: VESU_VTOKENS.USDC_STABLE_CORE,
     asset: "USDC",
     assetAddress: USDC_ADDRESS,
+    decimals: 6,
     apy: "6.8%", // This should be fetched dynamically
     tvl: "$4.1M", // This should be fetched dynamically
     description: "Earn stable yield by lending USDC to the Re7 USDC Stable Core pool on Vesu",
     riskLevel: "Low",
+  },
+  {
+    id: "vesu-lbtc-xbtc",
+    name: "Re7 xBTC - LBTC",
+    poolAddress: VESU_CONTRACTS.RE7_XBTC,
+    vTokenAddress: VESU_VTOKENS.LBTC_XBTC,
+    asset: "LBTC",
+    assetAddress: LBTC_ADDRESS,
+    decimals: 8,
+    apy: "—",
+    tvl: "—",
+    description: "Earn yield by lending LBTC to the Re7 xBTC pool on Vesu",
+    riskLevel: "Medium",
+  },
+  {
+    id: "vesu-tbtc-xbtc",
+    name: "Re7 xBTC - tBTC",
+    poolAddress: VESU_CONTRACTS.RE7_XBTC,
+    vTokenAddress: VESU_VTOKENS.TBTC_XBTC,
+    asset: "tBTC",
+    assetAddress: TBTC_ADDRESS,
+    decimals: 18,
+    apy: "—",
+    tvl: "—",
+    description: "Earn yield by lending tBTC to the Re7 xBTC pool on Vesu",
+    riskLevel: "Medium",
+  },
+  {
+    id: "vesu-solvbtc-xbtc",
+    name: "Re7 xBTC - SolvBTC",
+    poolAddress: VESU_CONTRACTS.RE7_XBTC,
+    vTokenAddress: VESU_VTOKENS.SOLVBTC_XBTC,
+    asset: "SolvBTC",
+    assetAddress: SOLVBTC_ADDRESS,
+    decimals: 18,
+    apy: "—",
+    tvl: "—",
+    description: "Earn yield by lending SolvBTC to the Re7 xBTC pool on Vesu",
+    riskLevel: "Medium",
   },
 ];
 

@@ -184,5 +184,13 @@ export const USDC_ADDRESS =
 // - Bridged USDC.e: 0x033068f6539f8e6e6b131e6b2b814e6c34a5224bc66947c47dab9dfee93b35fb (using this one)
 // - Native Circle USDC: 0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8
 
+// BTCfi tokens (Starknet mainnet). Decimals differ: LBTC uses 8, tBTC/SolvBTC use 18.
+export const LBTC_ADDRESS =
+  "0x036834a40984312f7f7de8d31e3f6305b325389eaeea5b1c0664b2fb936461a4" as const;
+export const TBTC_ADDRESS =
+  "0x04daa17763b286d1e59b97c283c0b8c949994c361e426a28f743c67bdfe9a32f" as const;
+export const SOLVBTC_ADDRESS =
+  "0x0593e034dda23eea82d2ba9a30960ed42cf4a01502cc2351dc9b9881f9931a68" as const;
+
 // Placeholder for mainnet vault - replace with actual address
 export const VWBTC_ADDRESS = "" as const;

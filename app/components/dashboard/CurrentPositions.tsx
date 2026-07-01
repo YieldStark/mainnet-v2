@@ -120,12 +120,13 @@ const CurrentPositions = () => {
               pool.vTokenAddress,
               vTokenBalance
             )
-            const decimals = pool.asset === 'WBTC' ? 8 : 6
+            const decimals = pool.decimals
             const amount = Number(assetAmount) / 10 ** decimals
-            if (pool.asset === 'WBTC') {
-              vesuUsd += amount * WBTC_PRICE_USD
-            } else {
+            if (pool.asset === 'USDC') {
               vesuUsd += amount
+            } else {
+              // WBTC and BTCfi assets (LBTC/tBTC/SolvBTC) are ~1 BTC in value.
+              vesuUsd += amount * WBTC_PRICE_USD
             }
           } catch {
             // ignore per-pool errors

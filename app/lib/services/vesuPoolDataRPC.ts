@@ -390,11 +390,25 @@ export async function fetchAllPoolsViaRPC(rpcUrl: string) {
   const liveMarketsByKey = await fetchVesuMarkets();
   const pools = [
     {
-      id: "re7-xbtc",
+      id: "re7-xbtc-tbtc",
       poolAddress: VESU_CONTRACTS.RE7_XBTC,
       vTokenAddress: VESU_VTOKENS.TBTC_XBTC,
-      assetAddress: "0x03Fe2b97C1Fd336E750087D68B9b867997Fd64a2661fF3ca5A7C771641e8e7AC", // tBTC
+      assetAddress: "0x04daa17763b286d1e59b97c283c0b8c949994c361e426a28f743c67bdfe9a32f", // tBTC
+      decimals: 18,
+    },
+    {
+      id: "re7-xbtc-lbtc",
+      poolAddress: VESU_CONTRACTS.RE7_XBTC,
+      vTokenAddress: VESU_VTOKENS.LBTC_XBTC,
+      assetAddress: "0x036834a40984312f7f7de8d31e3f6305b325389eaeea5b1c0664b2fb936461a4", // LBTC
       decimals: 8,
+    },
+    {
+      id: "re7-xbtc-solvbtc",
+      poolAddress: VESU_CONTRACTS.RE7_XBTC,
+      vTokenAddress: VESU_VTOKENS.SOLVBTC_XBTC,
+      assetAddress: "0x0593e034dda23eea82d2ba9a30960ed42cf4a01502cc2351dc9b9881f9931a68", // SolvBTC
+      decimals: 18,
     },
     {
       id: "re7-usdc-core",
