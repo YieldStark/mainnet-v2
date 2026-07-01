@@ -5,6 +5,8 @@ export default [
   route("api/rpc", "routes/api.rpc.ts"),
   route("api/swap", "routes/api.swap.ts"),
   route("api/deposit", "routes/api.deposit.ts"),
+  route("api/withdraw", "routes/api.withdraw.ts"),
+  route("api/loan", "routes/api.loan.ts"),
   route("api/stats", "routes/api.stats.ts"),
   route("api/test-db", "routes/api.test-db.ts"),
   route("api/check-data", "routes/api.check-data.ts"),

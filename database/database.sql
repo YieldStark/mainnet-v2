@@ -43,6 +43,52 @@ CREATE INDEX IF NOT EXISTS idx_deposits_timestamp ON app_db.deposits(timestamp);
 CREATE INDEX IF NOT EXISTS idx_deposits_user_address ON app_db.deposits(user_address);
 CREATE INDEX IF NOT EXISTS idx_deposits_status ON app_db.deposits(status);
 
+CREATE TABLE IF NOT EXISTS app_db.withdrawals (
+    id BIGSERIAL PRIMARY KEY,
+    transaction_hash VARCHAR(66) UNIQUE NOT NULL,
+    block_number BIGINT NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    user_address VARCHAR(66) NOT NULL,
+    token_address VARCHAR(66) NOT NULL,
+    token_symbol VARCHAR(10),
+    amount_raw NUMERIC(78, 0) NOT NULL,
+    amount_wbtc NUMERIC(18, 8),
+    amount_usd NUMERIC(18, 2),
+    amount_strk NUMERIC(18, 8),
+    status VARCHAR(20) DEFAULT 'completed',
+    pool_address VARCHAR(66),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_withdrawals_timestamp ON app_db.withdrawals(timestamp);
+CREATE INDEX IF NOT EXISTS idx_withdrawals_user_address ON app_db.withdrawals(user_address);
+CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON app_db.withdrawals(status);
+
+-- Vesu loan (borrow) activity: borrow / repay / withdraw_collateral.
+CREATE TABLE IF NOT EXISTS app_db.loans (
+    id BIGSERIAL PRIMARY KEY,
+    transaction_hash VARCHAR(66) UNIQUE NOT NULL,
+    block_number BIGINT DEFAULT 0,
+    timestamp TIMESTAMP NOT NULL,
+    user_address VARCHAR(66) NOT NULL,
+    action VARCHAR(30) NOT NULL, -- borrow | repay | withdraw_collateral
+    pool_address VARCHAR(66),
+    pool_label VARCHAR(100),
+    collateral_symbol VARCHAR(20),
+    debt_symbol VARCHAR(20),
+    collateral_amount_raw NUMERIC(78, 0),
+    debt_amount_raw NUMERIC(78, 0),
+    amount TEXT, -- human-readable summary
+    amount_usd NUMERIC(18, 2),
+    status VARCHAR(20) DEFAULT 'completed',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_loans_timestamp ON app_db.loans(timestamp);
+CREATE INDEX IF NOT EXISTS idx_loans_user_address ON app_db.loans(user_address);
+CREATE INDEX IF NOT EXISTS idx_loans_action ON app_db.loans(action);
+CREATE INDEX IF NOT EXISTS idx_loans_pool_address ON app_db.loans(pool_address);
+
 CREATE TABLE IF NOT EXISTS app_db.token_prices (
     id BIGSERIAL PRIMARY KEY,
     token_address VARCHAR(66) NOT NULL,

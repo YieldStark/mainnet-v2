@@ -24,6 +24,7 @@ import {
   openRe7WbtcUsdcBorrowPosition,
 } from "~/lib/services/vesu";
 import { saveLocalTransaction, type Transaction } from "~/lib/utils/transactionHistory";
+import { recordLoan } from "~/lib/utils/recordTransaction";
 import VesuBorrowModal from "~/components/ui/VesuBorrowModal";
 import VesuLoanManageModal from "~/components/ui/VesuLoanManageModal";
 import VesuPrimeBorrowModal from "~/components/ui/VesuPrimeBorrowModal";
@@ -186,6 +187,20 @@ export default function LoansPage() {
       blockNumber: 0,
       contractLabel,
     });
+
+    // Persist loan activity (borrow/repay/withdraw_collateral) to the database.
+    if (type === "borrow" || type === "repay" || type === "withdraw_collateral") {
+      recordLoan({
+        transactionHash: hash,
+        timestamp: Math.floor(Date.now() / 1000),
+        userAddress: wallet.address,
+        action: type,
+        poolAddress: to,
+        poolLabel: contractLabel,
+        amount,
+        status: "completed",
+      }).catch((err) => console.error("Failed to record loan:", err));
+    }
   };
 
   useEffect(() => {

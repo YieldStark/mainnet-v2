@@ -18,7 +18,7 @@ import { useNetworkStore } from "~/stores/network-store";
 import { fetchTokenBalance } from "~/lib/utils/fetchTokenBalance";
 import { approveToken, checkAllowance, MAX_UINT256 } from "~/lib/utils/tokenApproval";
 import { saveLocalTransaction } from "~/lib/utils/transactionHistory";
-import { recordDeposit } from "~/lib/utils/recordTransaction";
+import { recordDeposit, recordWithdrawal } from "~/lib/utils/recordTransaction";
 import {
   useTrovesStrategies,
 } from "~/hooks/useTrovesStrategies";
@@ -629,6 +629,18 @@ export default function YieldPage() {
         blockNumber: 0,
         contractLabel: pool.name,
       });
+
+      recordWithdrawal({
+        transactionHash: withdrawTxHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        userAddress: operatingAddress,
+        tokenAddress: pool.assetAddress,
+        tokenSymbol: pool.asset,
+        amountRaw: amountBigInt.toString(),
+        decimals: pool.decimals,
+        status: "completed",
+        poolAddress: pool.poolAddress,
+      }).catch((err) => console.error("Failed to record withdrawal:", err));
 
       // Wait a moment for blockchain to update
       await new Promise(resolve => setTimeout(resolve, 2000));

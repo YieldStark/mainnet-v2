@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { VesuPairCollateralOption, VesuPoolPairSnapshot } from "~/lib/services/vesu";
 
-const SAFE_BORROW_FACTOR = 0.995;
+const SAFE_BORROW_FACTOR = 0.95;
 const MIN_COLLATERAL_VALUE_USD_FOR_BORROW = 20;
 
 interface VesuPrimeBorrowModalProps {
@@ -124,6 +124,14 @@ export default function VesuPrimeBorrowModal({
       if (rawMessage.includes("dusty-collateral-balance")) {
         setError(
           `Borrow reverted: collateral would be too small ("dusty"). Increase collateral amount and/or reduce borrow size.`
+        );
+      } else if (rawMessage.includes("dusty-debt-balance")) {
+        setError(
+          `Borrow reverted: the borrow amount is too small ("dusty"). Vesu requires a minimum debt size — increase the borrow amount and try again.`
+        );
+      } else if (rawMessage.includes("not-collateralized")) {
+        setError(
+          `Borrow reverted: not enough collateral for this borrow amount (over max LTV). Reduce the borrow amount or supply more collateral.`
         );
       } else {
         setError(rawMessage);

@@ -11,6 +11,7 @@ import {
   modifyVesuPosition,
 } from "~/lib/services/vesu";
 import { saveLocalTransaction, type Transaction } from "~/lib/utils/transactionHistory";
+import { recordLoan } from "~/lib/utils/recordTransaction";
 import VesuPrimeBorrowModal from "~/components/ui/VesuPrimeBorrowModal";
 import VesuLoanManageModal from "~/components/ui/VesuLoanManageModal";
 
@@ -99,6 +100,21 @@ export default function Re7XbtcBorrowMarket({
       blockNumber: 0,
       contractLabel: title,
     });
+
+    if (type === "borrow" || type === "repay" || type === "withdraw_collateral") {
+      recordLoan({
+        transactionHash: hash,
+        timestamp: Math.floor(Date.now() / 1000),
+        userAddress: wallet.address,
+        action: type,
+        poolAddress,
+        poolLabel: title,
+        collateralSymbol: selectedOption.symbol,
+        debtSymbol,
+        amount,
+        status: "completed",
+      }).catch((err) => console.error("Failed to record loan:", err));
+    }
   };
 
   const triggerRefresh = () => {

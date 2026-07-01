@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 
+// Keep borrow "max" below the hard max-LTV so oracle movement/rounding
+// doesn't trigger Vesu's `not-collateralized` revert.
+const SAFE_BORROW_FACTOR = 0.95;
+
 interface VesuBorrowModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -53,7 +57,9 @@ export default function VesuBorrowModal({
   const currentDebtValueUsd = existingDebtAmount * debtPriceUsd;
   const additionalBorrowValueUsd = Math.max(0, maxDebtValueUsd - currentDebtValueUsd);
   const maxBorrowableDebt =
-    debtPriceUsd > 0 ? Math.max(0, additionalBorrowValueUsd / debtPriceUsd) : 0;
+    debtPriceUsd > 0
+      ? Math.max(0, (additionalBorrowValueUsd / debtPriceUsd) * SAFE_BORROW_FACTOR)
+      : 0;
   const projectedLtv =
     nextCollateral > 0 && collateralPriceUsd > 0
       ? (nextDebt * debtPriceUsd) / (nextCollateral * collateralPriceUsd)
@@ -88,7 +94,22 @@ export default function VesuBorrowModal({
       setBorrowAmount("");
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Borrow transaction failed");
+      const rawMessage = err instanceof Error ? err.message : "Borrow transaction failed";
+      if (rawMessage.includes("dusty-debt-balance")) {
+        setError(
+          `Borrow reverted: the borrow amount is too small ("dusty"). Vesu requires a minimum debt size — increase the borrow amount and try again.`
+        );
+      } else if (rawMessage.includes("dusty-collateral-balance")) {
+        setError(
+          `Borrow reverted: collateral would be too small ("dusty"). Increase collateral amount and/or reduce borrow size.`
+        );
+      } else if (rawMessage.includes("not-collateralized")) {
+        setError(
+          `Borrow reverted: not enough collateral for this borrow amount (over max LTV). Reduce the borrow amount or supply more collateral.`
+        );
+      } else {
+        setError(rawMessage);
+      }
     } finally {
       setIsProcessing(false);
     }
