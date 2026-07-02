@@ -6,6 +6,7 @@ import { useNetworkStore } from "~/stores/network-store";
 import { useWalletStore } from "~/providers/wallet-store-provider";
 import {
   type VesuXbtcCollateralOption,
+  computeRepayDebtDelta,
   fetchVesuPoolPairs,
   getVesuLoanPosition,
   modifyVesuPosition,
@@ -347,6 +348,7 @@ export default function Re7XbtcBorrowMarket({
     }
 
     toast.loading(`Submitting ${debtSymbol} repay transaction...`, { id: statusId });
+    const { debtDelta, debtDenomination } = computeRepayDebtDelta(loanPosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       poolAddress,
@@ -354,7 +356,8 @@ export default function Re7XbtcBorrowMarket({
       debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      debtDelta,
+      debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,

@@ -4,6 +4,11 @@ import type { VesuPairCollateralOption, VesuPoolPairSnapshot } from "~/lib/servi
 
 const SAFE_BORROW_FACTOR = 0.95;
 const MIN_COLLATERAL_VALUE_USD_FOR_BORROW = 20;
+// Vesu rejects any non-zero debt whose value is at/below the pool's debt floor
+// ("dusty-debt-balance"). Require borrowing a bit above the floor to stay safe
+// against oracle/price rounding differences at execution time.
+const DEBT_FLOOR_FALLBACK_USD = 10;
+const DEBT_FLOOR_BUFFER = 1.1;
 
 interface VesuPrimeBorrowModalProps {
   isOpen: boolean;
@@ -73,6 +78,12 @@ export default function VesuPrimeBorrowModal({
     0,
     requiredTotalCollateralForBorrow - existingCollateralAmount
   );
+  const debtFloorUsd =
+    pairStats?.debtFloorUsd && pairStats.debtFloorUsd > 0
+      ? pairStats.debtFloorUsd
+      : DEBT_FLOOR_FALLBACK_USD;
+  const minBorrowForFloor =
+    debtPriceUsd > 0 ? (debtFloorUsd * DEBT_FLOOR_BUFFER) / debtPriceUsd : 0;
   const projectedLtv =
     nextCollateral > 0 && collateralPriceUsd > 0
       ? (nextDebt * debtPriceUsd) / (nextCollateral * collateralPriceUsd)
@@ -98,6 +109,16 @@ export default function VesuPrimeBorrowModal({
     if (borrow > 0 && safeMaxBorrowableDebt > 0 && borrow > safeMaxBorrowableDebt) {
       setError(
         `Borrow amount is too close to max LTV. Try ${safeMaxBorrowableDebt.toFixed(8)} ${debtSymbol} or less.`
+      );
+      return;
+    }
+    if (
+      borrow > 0 &&
+      debtPriceUsd > 0 &&
+      nextDebt * debtPriceUsd <= debtFloorUsd * DEBT_FLOOR_BUFFER
+    ) {
+      setError(
+        `Borrow amount is too small. Vesu requires a debt above ~$${debtFloorUsd.toFixed(0)}. Borrow at least ${minBorrowForFloor.toFixed(8)} ${debtSymbol}.`
       );
       return;
     }
@@ -262,6 +283,14 @@ export default function VesuPrimeBorrowModal({
                 {safeMaxBorrowableDebt.toFixed(8)} {debtSymbol}
               </span>
             </p>
+            {minBorrowForFloor > 0 && (
+              <p className="mt-1 text-xs text-gray-400">
+                Min borrow (~${debtFloorUsd.toFixed(0)} floor):{" "}
+                <span className="text-[#97FCE4]">
+                  {minBorrowForFloor.toFixed(8)} {debtSymbol}
+                </span>
+              </p>
+            )}
           </div>
         </div>
 

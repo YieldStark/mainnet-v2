@@ -19,6 +19,7 @@ import {
   fetchVesuPoolPairs,
   getVesuLoanPosition,
   VESU_VTOKENS,
+  computeRepayDebtDelta,
   getRe7WbtcUsdcLoanPosition,
   modifyVesuPosition,
   openRe7WbtcUsdcBorrowPosition,
@@ -776,6 +777,7 @@ export default function LoansPage() {
     toast.loading("Submitting Prime WBTC/USDT repay transaction...", {
       id: "prime-usdt-repay-status",
     });
+    const primeWbtcUsdtRepay = computeRepayDebtDelta(primeWbtcUsdtPosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       VESU_PRIME_WBTC_USDT_BORROW.poolAddress,
@@ -783,7 +785,8 @@ export default function LoansPage() {
       VESU_PRIME_WBTC_USDT_BORROW.debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      primeWbtcUsdtRepay.debtDelta,
+      primeWbtcUsdtRepay.debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,
@@ -929,6 +932,7 @@ export default function LoansPage() {
     toast.loading("Submitting Re7 USDC Prime repay transaction...", {
       id: "re7-usdc-prime-repay-status",
     });
+    const re7UsdcPrimeRepay = computeRepayDebtDelta(re7UsdcPrimePosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       VESU_RE7_USDC_PRIME_BORROW.poolAddress,
@@ -936,7 +940,8 @@ export default function LoansPage() {
       VESU_RE7_USDC_PRIME_BORROW.debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      re7UsdcPrimeRepay.debtDelta,
+      re7UsdcPrimeRepay.debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,
@@ -1078,6 +1083,7 @@ export default function LoansPage() {
     }
 
     toast.loading("Submitting Vesu Prime repay transaction...", { id: "prime-repay-status" });
+    const primeRepay = computeRepayDebtDelta(primeLoanPosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       VESU_PRIME_POOL.poolAddress,
@@ -1085,7 +1091,8 @@ export default function LoansPage() {
       VESU_PRIME_POOL.debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      primeRepay.debtDelta,
+      primeRepay.debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,
@@ -1229,6 +1236,7 @@ export default function LoansPage() {
     }
 
     toast.loading("Submitting Re7 xBTC repay transaction...", { id: "xbtc-repay-status" });
+    const xbtcRepay = computeRepayDebtDelta(xbtcLoanPosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       VESU_RE7_XBTC_POOL.poolAddress,
@@ -1236,7 +1244,8 @@ export default function LoansPage() {
       VESU_RE7_XBTC_POOL.debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      xbtcRepay.debtDelta,
+      xbtcRepay.debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,
@@ -1327,6 +1336,7 @@ export default function LoansPage() {
     }
 
     toast.loading("Submitting repay transaction...", { id: "repay-status" });
+    const coreRepay = computeRepayDebtDelta(loanPosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       VESU_RE7_USDC_CORE_BORROW.poolAddress,
@@ -1334,7 +1344,8 @@ export default function LoansPage() {
       VESU_RE7_USDC_CORE_BORROW.debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      coreRepay.debtDelta,
+      coreRepay.debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,

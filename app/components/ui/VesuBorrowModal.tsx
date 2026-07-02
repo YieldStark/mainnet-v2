@@ -4,6 +4,10 @@ import { X } from "lucide-react";
 // Keep borrow "max" below the hard max-LTV so oracle movement/rounding
 // doesn't trigger Vesu's `not-collateralized` revert.
 const SAFE_BORROW_FACTOR = 0.95;
+// Vesu rejects any non-zero debt at/below the pool's debt floor
+// ("dusty-debt-balance"). Require borrowing a bit above the floor.
+const DEBT_FLOOR_FALLBACK_USD = 10;
+const DEBT_FLOOR_BUFFER = 1.1;
 
 interface VesuBorrowModalProps {
   isOpen: boolean;
@@ -22,6 +26,7 @@ interface VesuBorrowModalProps {
   collateralPriceUsd?: number;
   debtPriceUsd?: number;
   maxLtv?: number;
+  debtFloorUsd?: number;
 }
 
 export default function VesuBorrowModal({
@@ -41,6 +46,7 @@ export default function VesuBorrowModal({
   collateralPriceUsd = 0,
   debtPriceUsd = 0,
   maxLtv = 0,
+  debtFloorUsd,
 }: VesuBorrowModalProps) {
   const [collateralAmount, setCollateralAmount] = useState("");
   const [borrowAmount, setBorrowAmount] = useState("");
@@ -60,6 +66,10 @@ export default function VesuBorrowModal({
     debtPriceUsd > 0
       ? Math.max(0, (additionalBorrowValueUsd / debtPriceUsd) * SAFE_BORROW_FACTOR)
       : 0;
+  const effectiveDebtFloorUsd =
+    debtFloorUsd && debtFloorUsd > 0 ? debtFloorUsd : DEBT_FLOOR_FALLBACK_USD;
+  const minBorrowForFloor =
+    debtPriceUsd > 0 ? (effectiveDebtFloorUsd * DEBT_FLOOR_BUFFER) / debtPriceUsd : 0;
   const projectedLtv =
     nextCollateral > 0 && collateralPriceUsd > 0
       ? (nextDebt * debtPriceUsd) / (nextCollateral * collateralPriceUsd)
@@ -83,6 +93,17 @@ export default function VesuBorrowModal({
 
     if (collateral > parseFloat(collateralBalance || "0")) {
       setError(`Insufficient ${collateralSymbol} balance`);
+      return;
+    }
+
+    if (
+      borrow > 0 &&
+      debtPriceUsd > 0 &&
+      nextDebt * debtPriceUsd <= effectiveDebtFloorUsd * DEBT_FLOOR_BUFFER
+    ) {
+      setError(
+        `Borrow amount is too small. Vesu requires a debt above ~$${effectiveDebtFloorUsd.toFixed(0)}. Borrow at least ${minBorrowForFloor.toFixed(debtDecimals)} ${debtSymbol}.`
+      );
       return;
     }
 
@@ -198,6 +219,14 @@ export default function VesuBorrowModal({
                 {maxBorrowableDebt.toFixed(debtDecimals)} {debtSymbol}
               </span>
             </p>
+            {minBorrowForFloor > 0 && (
+              <p className="mt-1 text-xs text-gray-400">
+                Min borrow (~${effectiveDebtFloorUsd.toFixed(0)} floor):{" "}
+                <span className="text-[#97FCE4]">
+                  {minBorrowForFloor.toFixed(debtDecimals)} {debtSymbol}
+                </span>
+              </p>
+            )}
           </div>
         </div>
 

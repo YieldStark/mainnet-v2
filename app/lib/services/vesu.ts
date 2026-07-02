@@ -210,6 +210,8 @@ export interface VesuPool {
 export interface VesuLoanPosition {
   collateralRaw: bigint;
   debtRaw: bigint;
+  /** Nominal debt in SCALE (1e18) units. Stable across interest accrual; used to fully close a position. */
+  nominalDebtRaw: bigint;
   collateralAmount: number;
   debtAmount: number;
   collateralPriceUsd: number;
@@ -226,6 +228,8 @@ export interface VesuPoolPairSnapshot {
   liquidationLtv: number;
   liquidationBonus: number;
   totalDebt: number;
+  /** Minimum debt value (USD) for the debt asset. Borrowing below this reverts with "dusty-debt-balance". */
+  debtFloorUsd: number;
 }
 
 function i257FromSignedAmount(amount: bigint) {
@@ -410,9 +414,45 @@ export async function withdrawFromVesu(
   }
 }
 
+// Vesu AmountDenomination enum: Native (nominal debt/shares) = 0, Assets = 1.
+export const VESU_DENOMINATION_NATIVE = 0;
+export const VESU_DENOMINATION_ASSETS = 1;
+
+/**
+ * Computes the debt Amount to send when repaying a Vesu position.
+ *
+ * When the user repays (approximately) the entire debt, we close it using the
+ * Native (nominal-debt) denomination with the full `nominalDebtRaw`. This drives
+ * the debt to exactly zero regardless of interest that accrues between reading the
+ * position and the transaction landing on-chain. Repaying a stale asset amount
+ * instead leaves a sub-floor sliver of debt, which Vesu rejects with
+ * "dusty-debt-balance" (debt must be exactly 0 or above the pool floor).
+ *
+ * For partial repayments we keep the Assets denomination with the requested amount.
+ */
+export function computeRepayDebtDelta(
+  position: { debtRaw: bigint; nominalDebtRaw: bigint } | null | undefined,
+  repayRaw: bigint
+): { debtDelta: bigint; debtDenomination: number } {
+  if (
+    position &&
+    position.debtRaw > 0n &&
+    position.nominalDebtRaw > 0n &&
+    // repaying >= 99.5% of the shown debt is treated as "repay all"
+    repayRaw >= (position.debtRaw * 995n) / 1000n
+  ) {
+    return {
+      debtDelta: -position.nominalDebtRaw,
+      debtDenomination: VESU_DENOMINATION_NATIVE,
+    };
+  }
+  return { debtDelta: -repayRaw, debtDenomination: VESU_DENOMINATION_ASSETS };
+}
+
 /**
  * Modify a Vesu borrow position (Pool::modify_position).
  * Positive collateralDelta => supply collateral, positive debtDelta => borrow debt asset.
+ * `debtDenomination` defaults to Assets; pass Native to fully close a debt via nominal debt.
  */
 export async function modifyVesuPosition(
   account: any,
@@ -421,7 +461,8 @@ export async function modifyVesuPosition(
   debtAsset: string,
   userAddress: string,
   collateralDelta: bigint,
-  debtDelta: bigint
+  debtDelta: bigint,
+  debtDenomination: number = VESU_DENOMINATION_ASSETS
 ): Promise<string> {
   try {
     const calldata = CallData.compile({
@@ -434,7 +475,7 @@ export async function modifyVesuPosition(
           value: i257FromSignedAmount(collateralDelta),
         },
         debt: {
-          denomination: 1, // AmountDenomination::Assets
+          denomination: debtDenomination,
           value: i257FromSignedAmount(debtDelta),
         },
       },
@@ -666,6 +707,9 @@ export async function getVesuLoanPosition(
     ? debtPriceRaw
     : (debtPriceRaw as { result?: string[] })?.result || [];
 
+  // position() returns (Position { collateral_shares, nominal_debt }, collateral, debt).
+  // Serialized as u256 pairs: [0]=collateral_shares, [2]=nominal_debt, [4]=collateral, [6]=debt.
+  const nominalDebtRaw = parseUint256FromResult(positionResult, 2);
   const collateralRaw = parseUint256FromResult(positionResult, 4);
   const debtRaw = parseUint256FromResult(positionResult, 6);
 
@@ -690,6 +734,7 @@ export async function getVesuLoanPosition(
   return {
     collateralRaw,
     debtRaw,
+    nominalDebtRaw,
     collateralAmount,
     debtAmount,
     collateralPriceUsd,
@@ -712,6 +757,20 @@ export async function fetchVesuPoolPairs(
     }
     const payload = await response.json();
     const pairs = Array.isArray(payload?.data?.pairs) ? payload.data.pairs : [];
+    const assets = Array.isArray(payload?.data?.assets) ? payload.data.assets : [];
+
+    // Map debt asset address -> debt floor in USD (config.debtFloor is a USD value).
+    const debtFloorByAsset = new Map<string, number>();
+    for (const asset of assets) {
+      const address = String(asset?.address || "").toLowerCase();
+      const floor = asset?.config?.debtFloor;
+      if (address && floor) {
+        debtFloorByAsset.set(
+          address,
+          Number(floor.value || 0) / 10 ** (floor.decimals || 18)
+        );
+      }
+    }
 
     return pairs.map((pair: any) => {
       const maxLtv = Number(pair?.maxLTV?.value || 0) / 10 ** (pair?.maxLTV?.decimals || 18);
@@ -722,14 +781,16 @@ export async function fetchVesuPoolPairs(
         liquidationLtv > 0 ? Math.max(0, (1 / liquidationLtv - 1) * 100) : 0;
       const totalDebt =
         Number(pair?.totalDebt?.value || 0) / 10 ** (pair?.totalDebt?.decimals || 18);
+      const debtAssetAddress = String(pair?.debtAssetAddress || "").toLowerCase();
 
       return {
         collateralAssetAddress: String(pair?.collateralAssetAddress || "").toLowerCase(),
-        debtAssetAddress: String(pair?.debtAssetAddress || "").toLowerCase(),
+        debtAssetAddress,
         maxLtv,
         liquidationLtv,
         liquidationBonus,
         totalDebt,
+        debtFloorUsd: debtFloorByAsset.get(debtAssetAddress) ?? 0,
       };
     });
   } catch (error) {
