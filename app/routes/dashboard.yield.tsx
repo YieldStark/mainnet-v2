@@ -18,7 +18,7 @@ import { useNetworkStore } from "~/stores/network-store";
 import { fetchTokenBalance } from "~/lib/utils/fetchTokenBalance";
 import { approveToken, checkAllowance, MAX_UINT256 } from "~/lib/utils/tokenApproval";
 import { saveLocalTransaction } from "~/lib/utils/transactionHistory";
-import { recordDeposit } from "~/lib/utils/recordTransaction";
+import { recordDeposit, recordWithdrawal } from "~/lib/utils/recordTransaction";
 import {
   useTrovesStrategies,
 } from "~/hooks/useTrovesStrategies";
@@ -58,8 +58,8 @@ export default function YieldPage() {
   // Use wallet from wallet store as the account for transactions
   const account = wallet as any;
   
-  // User token balances
-  const [balances, setBalances] = useState({
+  // User token balances keyed by asset symbol (plus USDCe for Troves)
+  const [balances, setBalances] = useState<Record<string, string>>({
     WBTC: "0.0",
     USDC: "0.0",
     USDCe: "0.0",
@@ -92,41 +92,35 @@ export default function YieldPage() {
       setIsLoadingBalances(true);
       try {
         const rpcUrl = currentNetwork.rpcUrl;
-        
-        const wbtcTokenAddress = VESU_LENDING_POOLS.find(p => p.asset === "WBTC")!.assetAddress;
-        const usdcTokenAddress = VESU_LENDING_POOLS.find(p => p.asset === "USDC")!.assetAddress;
-        
-        console.log("=== BALANCE FETCH DEBUG ===");
-        console.log("Your wallet address:", address);
-        console.log("USDC token address we're querying:", usdcTokenAddress);
-        console.log("WBTC token address we're querying:", wbtcTokenAddress);
-        console.log("RPC URL:", rpcUrl);
-        console.log("========================");
-        
-        // Fetch WBTC, USDC, and USDC.e (for Troves) balances in parallel
-        const [wbtcBalance, usdcBalance, usdcEBalance] = await Promise.all([
-          fetchTokenBalance(
-            rpcUrl,
-            wbtcTokenAddress,
-            address,
-            8 // WBTC decimals
-          ),
-          fetchTokenBalance(
-            rpcUrl,
-            usdcTokenAddress,
-            address,
-            6 // USDC decimals
-          ),
-          fetchTokenBalance(rpcUrl, USDC_E_ADDRESS, address, 6),
-        ]);
 
-        console.log("Fetched balances:", { wbtcBalance, usdcBalance, usdcEBalance });
+        // Collect unique underlying assets across all lending pools.
+        const uniqueAssets = new Map<
+          string,
+          { assetAddress: string; decimals: number }
+        >();
+        for (const pool of VESU_LENDING_POOLS) {
+          if (!uniqueAssets.has(pool.asset)) {
+            uniqueAssets.set(pool.asset, {
+              assetAddress: pool.assetAddress,
+              decimals: pool.decimals,
+            });
+          }
+        }
 
-        setBalances({
-          WBTC: wbtcBalance,
-          USDC: usdcBalance,
-          USDCe: usdcEBalance,
+        // Fetch wallet balance for each unique asset, plus USDC.e (for Troves).
+        const assetEntries = Array.from(uniqueAssets.entries());
+        const assetBalances = await Promise.all(
+          assetEntries.map(([, meta]) =>
+            fetchTokenBalance(rpcUrl, meta.assetAddress, address, meta.decimals)
+          )
+        );
+        const usdcEBalance = await fetchTokenBalance(rpcUrl, USDC_E_ADDRESS, address, 6);
+
+        const nextBalances: Record<string, string> = { USDCe: usdcEBalance };
+        assetEntries.forEach(([symbol], index) => {
+          nextBalances[symbol] = assetBalances[index];
         });
+        setBalances(nextBalances);
 
         // Fetch deposited amounts (vToken balances converted to assets)
         const depositedAmounts: Record<string, string> = {};
@@ -145,7 +139,7 @@ export default function YieldPage() {
                 vTokenBalance
               );
               
-              const decimals = pool.asset === "WBTC" ? 8 : 6;
+              const decimals = pool.decimals;
               depositedAmounts[pool.id] = (Number(assetAmount) / 10 ** decimals).toFixed(decimals);
             } else {
               depositedAmounts[pool.id] = "0";
@@ -168,9 +162,16 @@ export default function YieldPage() {
   // Merge static pool config with dynamic data
   const getEnrichedPools = () => {
     return VESU_LENDING_POOLS.map((pool) => {
-      const liveData = poolsData.find((p) => 
-        pool.poolAddress.toLowerCase() === p.poolAddress.toLowerCase()
-      );
+      // Match on vToken first (pools can share a pool address, e.g. Re7 xBTC),
+      // then fall back to pool address for older single-market entries.
+      const liveData =
+        poolsData.find(
+          (p) =>
+            pool.vTokenAddress.toLowerCase() === p.vTokenAddress.toLowerCase()
+        ) ||
+        poolsData.find(
+          (p) => pool.poolAddress.toLowerCase() === p.poolAddress.toLowerCase()
+        );
       
       return {
         ...pool,
@@ -207,7 +208,7 @@ export default function YieldPage() {
 
     try {
       // Parse amount to smallest unit (wei)
-      const decimals = pool.asset === "WBTC" ? 8 : 6;
+      const decimals = pool.decimals;
       const amountBigInt = BigInt(Math.floor(parseFloat(amount) * 10 ** decimals));
 
       if (amountBigInt <= 0n) {
@@ -433,7 +434,7 @@ export default function YieldPage() {
         contractLabel: pool.name,
       });
 
-      const depositDecimals = pool.asset === "WBTC" ? 8 : 6;
+      const depositDecimals = pool.decimals;
       recordDeposit({
         transactionHash: depositTxHash,
         timestamp: Math.floor(Date.now() / 1000),
@@ -536,7 +537,7 @@ export default function YieldPage() {
       const operatingAddress = account.address;
       
       // Parse amount to smallest unit (wei)
-      const decimals = pool.asset === "WBTC" ? 8 : 6;
+      const decimals = pool.decimals;
       const amountBigInt = BigInt(Math.floor(parseFloat(amount) * 10 ** decimals));
 
       if (amountBigInt <= 0n) {
@@ -629,6 +630,18 @@ export default function YieldPage() {
         contractLabel: pool.name,
       });
 
+      recordWithdrawal({
+        transactionHash: withdrawTxHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        userAddress: operatingAddress,
+        tokenAddress: pool.assetAddress,
+        tokenSymbol: pool.asset,
+        amountRaw: amountBigInt.toString(),
+        decimals: pool.decimals,
+        status: "completed",
+        poolAddress: pool.poolAddress,
+      }).catch((err) => console.error("Failed to record withdrawal:", err));
+
       // Wait a moment for blockchain to update
       await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -681,6 +694,9 @@ export default function YieldPage() {
 
   const wbtcPools = enrichedPools.filter((pool) => pool.asset === "WBTC");
   const usdcPools = enrichedPools.filter((pool) => pool.asset === "USDC");
+  const btcfiPools = enrichedPools.filter(
+    (pool) => pool.asset !== "WBTC" && pool.asset !== "USDC"
+  );
 
   const trovesUserBalances: Record<string, string> = {
     WBTC: balances.WBTC,
@@ -965,6 +981,26 @@ export default function YieldPage() {
         </div>
       </div>
 
+      {/* BTCfi Pools Section (LBTC / tBTC / SolvBTC) */}
+      {btcfiPools.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-medium text-white">BTCfi Pools</h2>
+            <div className="h-px flex-1 bg-gray-800" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {btcfiPools.map((pool) => (
+              <PoolCard
+                key={pool.id}
+                pool={pool}
+                onDeposit={() => handleOpenLendModal(pool)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* USDC Pools Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
@@ -990,7 +1026,7 @@ export default function YieldPage() {
         pool={selectedPool}
         onDeposit={handleDeposit}
         onWithdraw={handleWithdraw}
-        userBalance={selectedPool ? balances[selectedPool.asset] : "0"}
+        userBalance={selectedPool ? balances[selectedPool.asset] ?? "0" : "0"}
         depositedBalance={selectedPool ? depositedBalances[selectedPool.id] || "0" : "0"}
         mode={modalMode}
       />

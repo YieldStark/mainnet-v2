@@ -12,18 +12,24 @@ import {
   VESU_PRIME_COLLATERAL_OPTIONS,
   VESU_PRIME_POOL,
   VESU_RE7_XBTC_POOL,
+  VESU_RE7_XBTC_LBTC_POOL,
+  VESU_RE7_XBTC_TBTC_POOL,
+  VESU_RE7_XBTC_SOLVBTC_POOL,
   VESU_XBTC_COLLATERAL_OPTIONS,
   fetchVesuPoolPairs,
   getVesuLoanPosition,
   VESU_VTOKENS,
+  computeRepayDebtDelta,
   getRe7WbtcUsdcLoanPosition,
   modifyVesuPosition,
   openRe7WbtcUsdcBorrowPosition,
 } from "~/lib/services/vesu";
 import { saveLocalTransaction, type Transaction } from "~/lib/utils/transactionHistory";
+import { recordLoan } from "~/lib/utils/recordTransaction";
 import VesuBorrowModal from "~/components/ui/VesuBorrowModal";
 import VesuLoanManageModal from "~/components/ui/VesuLoanManageModal";
 import VesuPrimeBorrowModal from "~/components/ui/VesuPrimeBorrowModal";
+import Re7XbtcBorrowMarket from "~/components/dashboard/Re7XbtcBorrowMarket";
 
 const WBTC_DECIMALS = 8;
 const USDC_DECIMALS = 6;
@@ -182,6 +188,20 @@ export default function LoansPage() {
       blockNumber: 0,
       contractLabel,
     });
+
+    // Persist loan activity (borrow/repay/withdraw_collateral) to the database.
+    if (type === "borrow" || type === "repay" || type === "withdraw_collateral") {
+      recordLoan({
+        transactionHash: hash,
+        timestamp: Math.floor(Date.now() / 1000),
+        userAddress: wallet.address,
+        action: type,
+        poolAddress: to,
+        poolLabel: contractLabel,
+        amount,
+        status: "completed",
+      }).catch((err) => console.error("Failed to record loan:", err));
+    }
   };
 
   useEffect(() => {
@@ -757,6 +777,7 @@ export default function LoansPage() {
     toast.loading("Submitting Prime WBTC/USDT repay transaction...", {
       id: "prime-usdt-repay-status",
     });
+    const primeWbtcUsdtRepay = computeRepayDebtDelta(primeWbtcUsdtPosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       VESU_PRIME_WBTC_USDT_BORROW.poolAddress,
@@ -764,7 +785,8 @@ export default function LoansPage() {
       VESU_PRIME_WBTC_USDT_BORROW.debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      primeWbtcUsdtRepay.debtDelta,
+      primeWbtcUsdtRepay.debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,
@@ -910,6 +932,7 @@ export default function LoansPage() {
     toast.loading("Submitting Re7 USDC Prime repay transaction...", {
       id: "re7-usdc-prime-repay-status",
     });
+    const re7UsdcPrimeRepay = computeRepayDebtDelta(re7UsdcPrimePosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       VESU_RE7_USDC_PRIME_BORROW.poolAddress,
@@ -917,7 +940,8 @@ export default function LoansPage() {
       VESU_RE7_USDC_PRIME_BORROW.debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      re7UsdcPrimeRepay.debtDelta,
+      re7UsdcPrimeRepay.debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,
@@ -1059,6 +1083,7 @@ export default function LoansPage() {
     }
 
     toast.loading("Submitting Vesu Prime repay transaction...", { id: "prime-repay-status" });
+    const primeRepay = computeRepayDebtDelta(primeLoanPosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       VESU_PRIME_POOL.poolAddress,
@@ -1066,7 +1091,8 @@ export default function LoansPage() {
       VESU_PRIME_POOL.debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      primeRepay.debtDelta,
+      primeRepay.debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,
@@ -1210,6 +1236,7 @@ export default function LoansPage() {
     }
 
     toast.loading("Submitting Re7 xBTC repay transaction...", { id: "xbtc-repay-status" });
+    const xbtcRepay = computeRepayDebtDelta(xbtcLoanPosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       VESU_RE7_XBTC_POOL.poolAddress,
@@ -1217,7 +1244,8 @@ export default function LoansPage() {
       VESU_RE7_XBTC_POOL.debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      xbtcRepay.debtDelta,
+      xbtcRepay.debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,
@@ -1308,6 +1336,7 @@ export default function LoansPage() {
     }
 
     toast.loading("Submitting repay transaction...", { id: "repay-status" });
+    const coreRepay = computeRepayDebtDelta(loanPosition, repayRaw);
     const txHash = await modifyVesuPosition(
       wallet,
       VESU_RE7_USDC_CORE_BORROW.poolAddress,
@@ -1315,7 +1344,8 @@ export default function LoansPage() {
       VESU_RE7_USDC_CORE_BORROW.debtAsset,
       wallet.address,
       0n,
-      -repayRaw
+      coreRepay.debtDelta,
+      coreRepay.debtDenomination
     );
     await wallet.waitForTransaction(txHash, {
       retryInterval: 5000,
@@ -1966,6 +1996,42 @@ export default function LoansPage() {
           </button>
         </div>
       </div>
+
+      <Re7XbtcBorrowMarket
+        title="Re7 xBTC - Borrow LBTC"
+        description="Supply an xBTC collateral and borrow LBTC from the Re7 xBTC pool."
+        poolAddress={VESU_RE7_XBTC_LBTC_POOL.poolAddress}
+        debtAsset={VESU_RE7_XBTC_LBTC_POOL.debtAsset}
+        debtSymbol="LBTC"
+        debtDecimals={VESU_RE7_XBTC_LBTC_POOL.debtDecimals}
+        collateralOptions={VESU_XBTC_COLLATERAL_OPTIONS}
+        refreshNonce={refreshNonce}
+        onTxComplete={() => setRefreshNonce((v) => v + 1)}
+      />
+
+      <Re7XbtcBorrowMarket
+        title="Re7 xBTC - Borrow tBTC"
+        description="Supply an xBTC collateral and borrow tBTC from the Re7 xBTC pool."
+        poolAddress={VESU_RE7_XBTC_TBTC_POOL.poolAddress}
+        debtAsset={VESU_RE7_XBTC_TBTC_POOL.debtAsset}
+        debtSymbol="tBTC"
+        debtDecimals={VESU_RE7_XBTC_TBTC_POOL.debtDecimals}
+        collateralOptions={VESU_XBTC_COLLATERAL_OPTIONS}
+        refreshNonce={refreshNonce}
+        onTxComplete={() => setRefreshNonce((v) => v + 1)}
+      />
+
+      <Re7XbtcBorrowMarket
+        title="Re7 xBTC - Borrow SolvBTC"
+        description="Supply an xBTC collateral and borrow SolvBTC from the Re7 xBTC pool."
+        poolAddress={VESU_RE7_XBTC_SOLVBTC_POOL.poolAddress}
+        debtAsset={VESU_RE7_XBTC_SOLVBTC_POOL.debtAsset}
+        debtSymbol="SolvBTC"
+        debtDecimals={VESU_RE7_XBTC_SOLVBTC_POOL.debtDecimals}
+        collateralOptions={VESU_XBTC_COLLATERAL_OPTIONS}
+        refreshNonce={refreshNonce}
+        onTxComplete={() => setRefreshNonce((v) => v + 1)}
+      />
         </>
       )}
 

@@ -69,7 +69,7 @@ export default function VesuPositions({ onManagePosition }: VesuPositionsProps) 
             console.log(`${pool.name} asset amount:`, assetAmount.toString());
 
             // Calculate decimals
-            const decimals = pool.asset === "WBTC" ? 8 : 6;
+            const decimals = pool.decimals;
             
             // Convert bigint to number safely
             // Use string manipulation to avoid Number() overflow issues

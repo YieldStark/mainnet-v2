@@ -64,3 +64,64 @@ export async function recordDeposit(depositData: {
     console.error('Error recording deposit to database:', error);
   }
 }
+
+export async function recordWithdrawal(withdrawalData: {
+  transactionHash: string;
+  blockNumber?: number;
+  timestamp?: number;
+  userAddress: string;
+  tokenAddress: string;
+  tokenSymbol?: string;
+  amountRaw: string;
+  decimals: number;
+  amountWbtc?: number;
+  amountUsd?: number;
+  amountStrk?: number;
+  status?: string;
+  poolAddress?: string;
+}) {
+  try {
+    const response = await fetch('/api/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(withdrawalData)
+    });
+
+    if (!response.ok) {
+      console.error('Failed to record withdrawal:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error recording withdrawal to database:', error);
+  }
+}
+
+export async function recordLoan(loanData: {
+  transactionHash: string;
+  blockNumber?: number;
+  timestamp?: number;
+  userAddress: string;
+  action: 'borrow' | 'repay' | 'withdraw_collateral';
+  poolAddress?: string;
+  poolLabel?: string;
+  collateralSymbol?: string;
+  debtSymbol?: string;
+  collateralAmountRaw?: string;
+  debtAmountRaw?: string;
+  amount?: string;
+  amountUsd?: number;
+  status?: string;
+}) {
+  try {
+    const response = await fetch('/api/loan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loanData)
+    });
+
+    if (!response.ok) {
+      console.error('Failed to record loan:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error recording loan to database:', error);
+  }
+}
