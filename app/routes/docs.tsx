@@ -5,6 +5,7 @@ const SECTIONS = [
   { id: "introduction", label: "Introduction" },
   { id: "what-is-yieldstark", label: "What is YieldStark?" },
   { id: "features", label: "Features" },
+  { id: "bridge", label: "Bridge" },
   { id: "deposits", label: "Deposits" },
   { id: "withdrawals", label: "Withdrawals" },
   { id: "earn-yield", label: "Earn Yield" },
@@ -108,6 +109,10 @@ export default function DocsPage() {
                 Starknet address.
               </li>
               <li>
+                <strong className="text-gray-300">Bridge</strong> — Move WBTC between Arbitrum
+                and Starknet, non-custodially, via Layerswap.
+              </li>
+              <li>
                 <strong className="text-gray-300">Swap</strong> — Swap tokens on Starknet to get
                 WBTC or USDC for depositing.
               </li>
@@ -120,6 +125,38 @@ export default function DocsPage() {
                 disconnect.
               </li>
             </ul>
+          </section>
+
+          <section id="bridge" className="scroll-mt-6">
+            <h2 className="text-xl font-semibold text-white mb-3">Bridge</h2>
+            <p className="text-gray-400 leading-relaxed mb-4">
+              The Bridge page moves WBTC between Arbitrum and Starknet using{" "}
+              <a
+                href="https://layerswap.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#97FCE4] hover:underline"
+              >
+                Layerswap
+              </a>
+              , a third-party non-custodial bridge. YieldStark never takes custody of bridged
+              funds: you connect an Arbitrum wallet and a Starknet wallet, sign the transfer, and
+              Layerswap settles WBTC directly to your own address on the destination chain.
+            </p>
+            <ul className="text-gray-400 space-y-2">
+              <li>
+                <strong className="text-gray-300">Deposit</strong> — Send WBTC from Arbitrum;
+                it arrives in your connected Starknet wallet.
+              </li>
+              <li>
+                <strong className="text-gray-300">Withdraw</strong> — Send WBTC from your
+                Starknet wallet; it arrives in your Arbitrum wallet.
+              </li>
+            </ul>
+            <p className="text-gray-400 leading-relaxed mt-4">
+              Bridged WBTC can then be deposited into Vesu or TrovesFi from the Yield page like
+              any other WBTC in your wallet.
+            </p>
           </section>
 
           <section id="deposits" className="scroll-mt-6">

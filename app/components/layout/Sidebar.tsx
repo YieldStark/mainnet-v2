@@ -14,6 +14,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const navigationItems = [
     { name: "Overview", href: "/dashboard", icon: "/icons/overview.svg" },
     { name: "Swap", href: "/swap", icon: "/icons/swap-svgrepo-com.svg" },
+    { name: "Bridge", href: "/dashboard/bridge", icon: "/icons/bridge.svg" },
     { name: "Yield", href: "/dashboard/yield", icon: "/icons/opportunities.svg" },
     { name: "Loans", href: "/dashboard/loans", icon: "/icons/loans.svg" },
     // { name: "Agent", href: "/dashboard/agent", icon: "/icons/overview.svg" },

@@ -39,3 +39,18 @@ export const AVNU_CONFIG = {
   API_URL: 'https://api.avnu.fi',
   MAINNET_CHAIN_ID: 'SN_MAIN',
 }
+
+// Layerswap Bridge Configuration (non-custodial Arbitrum <-> Starknet WBTC)
+export const BRIDGE_CONFIG = {
+  // API keys from https://layerswap.io/dashboard to track swaps under this app
+  LAYERSWAP_API_KEY_MAINNET:
+    import.meta.env.VITE_LAYERSWAP_API_KEY_MAINNET ||
+    import.meta.env.VITE_LAYERSWAP_API_KEY ||
+    '',
+  LAYERSWAP_API_KEY_TESTNET: import.meta.env.VITE_LAYERSWAP_API_KEY_TESTNET || '',
+  // Required by the Layerswap widget's EVM/Starknet wallet connectors
+  WALLETCONNECT_PROJECT_ID: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '',
+  SOURCE_NETWORK: 'ARBITRUM_MAINNET',
+  DESTINATION_NETWORK: 'STARKNET_MAINNET',
+  ASSET: 'WBTC',
+}

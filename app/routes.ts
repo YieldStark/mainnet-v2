@@ -12,6 +12,7 @@ export default [
   route("api/check-data", "routes/api.check-data.ts"),
   route("dashboard", "routes/dashboard-layout.tsx", [
     index("routes/dashboard.index.tsx"),
+    route("bridge", "routes/dashboard.bridge.tsx"),
     route("yield", "routes/dashboard.yield.tsx"),
     route("loans", "routes/dashboard.loans.tsx"),
     route("history", "routes/dashboard.history.tsx"),
