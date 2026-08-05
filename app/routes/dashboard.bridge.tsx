@@ -3,6 +3,8 @@ import { useWalletStore } from "~/providers/wallet-store-provider";
 import { recordDeposit, recordWithdrawal } from "~/lib/utils/recordTransaction";
 import { saveLocalTransaction } from "~/lib/utils/transactionHistory";
 import {
+  getSwapTokenDecimals,
+  getSwapTokenSymbol,
   isDepositSwap,
   type BridgeDirection,
   type LayerswapCompletedSwap,
@@ -16,12 +18,12 @@ const DIRECTIONS: { id: BridgeDirection; label: string; description: string }[] 
   {
     id: "deposit",
     label: "Deposit",
-    description: "Bring WBTC from Ethereum into your Starknet wallet",
+    description: "Bring any supported asset into your Starknet wallet",
   },
   {
     id: "withdraw",
     label: "Withdraw",
-    description: "Send WBTC from your Starknet wallet to Ethereum",
+    description: "Send any supported asset from Starknet to another chain",
   },
 ];
 
@@ -36,14 +38,17 @@ export default function BridgePage() {
     const isDeposit = isDepositSwap(swap);
     const record = isDeposit ? recordDeposit : recordWithdrawal;
 
+    const tokenSymbol = getSwapTokenSymbol(swap);
+    const decimals = getSwapTokenDecimals(swap);
+
     record({
       transactionHash: outputTx?.transaction_hash ?? inputTx?.transaction_hash ?? swap.id,
       userAddress: swap.destination_address,
-      tokenAddress: "WBTC",
-      tokenSymbol: "WBTC",
+      tokenAddress: tokenSymbol,
+      tokenSymbol,
       amountRaw: String(swap.requested_amount),
-      decimals: 8,
-      amountWbtc: swap.requested_amount,
+      decimals,
+      ...(tokenSymbol === "WBTC" ? { amountWbtc: swap.requested_amount } : {}),
       status: "completed",
       poolAddress: "layerswap",
     });
@@ -58,7 +63,7 @@ export default function BridgePage() {
         to: swap.destination_address,
         status: "success",
         blockNumber: 0,
-        contractLabel: "Layerswap Bridge (WBTC)",
+        contractLabel: `Layerswap Bridge (${tokenSymbol})`,
       });
     }
   }, []);
@@ -68,7 +73,7 @@ export default function BridgePage() {
       <div className="bg-[#101D22] rounded-4xl p-6">
         <h1 className="text-3xl font-medium text-white mb-2">Bridge</h1>
         <p className="text-gray-400">
-          Move WBTC between Ethereum and Starknet. Non-custodial via{" "}
+          Bridge assets into or out of Starknet. Non-custodial via{" "}
           <a
             href="https://layerswap.io"
             target="_blank"
@@ -78,6 +83,12 @@ export default function BridgePage() {
             Layerswap
           </a>
           — you sign every transfer, and funds always land directly in your own wallet.
+        </p>
+        <p className="text-sm text-gray-500 mt-2">
+          Source and destination chains are selectable in the widget (Ethereum, Base, Arbitrum,
+          Bitcoin, and others). Only Starknet is fixed for deposit/withdraw direction. Some
+          token/chain pairs are not supported by Layerswap — for example, WBTC from Arbitrum is
+          unavailable, but USDC and ETH from Arbitrum work.
         </p>
       </div>
 

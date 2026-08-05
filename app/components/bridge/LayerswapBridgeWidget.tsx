@@ -31,7 +31,7 @@ export default function LayerswapBridgeWidget({
   const walletConnectConfigs = useMemo(() => getBridgeWalletConnectConfigs(), []);
   const walletProviders = useMemo(
     () => [
-      // EVM (Arbitrum) connects via WalletConnect + injected wallets (MetaMask etc.)
+      // EVM chains connect via WalletConnect + injected wallets (MetaMask etc.)
       createEVMProvider({ walletConnectConfigs }),
       // Starknet wallets (ArgentX/Braavos) connect via browser injection only
       createStarknetProvider(),

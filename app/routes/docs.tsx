@@ -109,8 +109,8 @@ export default function DocsPage() {
                 Starknet address.
               </li>
               <li>
-                <strong className="text-gray-300">Bridge</strong> — Move WBTC between Ethereum
-                and Starknet, non-custodially, via Layerswap.
+                <strong className="text-gray-300">Bridge</strong> — Move supported assets into
+                or out of Starknet, non-custodially, via Layerswap.
               </li>
               <li>
                 <strong className="text-gray-300">Swap</strong> — Swap tokens on Starknet to get
@@ -130,7 +130,7 @@ export default function DocsPage() {
           <section id="bridge" className="scroll-mt-6">
             <h2 className="text-xl font-semibold text-white mb-3">Bridge</h2>
             <p className="text-gray-400 leading-relaxed mb-4">
-              The Bridge page moves WBTC between Ethereum and Starknet using{" "}
+              The Bridge page moves supported assets into or out of Starknet using{" "}
               <a
                 href="https://layerswap.io"
                 target="_blank"
@@ -140,22 +140,22 @@ export default function DocsPage() {
                 Layerswap
               </a>
               , a third-party non-custodial bridge. YieldStark never takes custody of bridged
-              funds: you connect an Ethereum wallet and a Starknet wallet, sign the transfer, and
-              Layerswap settles WBTC directly to your own address on the destination chain.
+              funds: you connect source and destination wallets, sign the transfer, and
+              Layerswap settles assets directly to your own address on the destination chain.
             </p>
             <ul className="text-gray-400 space-y-2">
               <li>
-                <strong className="text-gray-300">Deposit</strong> — Send WBTC from Ethereum;
-                it arrives in your connected Starknet wallet.
+                <strong className="text-gray-300">Deposit</strong> — Send a supported asset from
+                another chain; it arrives in your connected Starknet wallet.
               </li>
               <li>
-                <strong className="text-gray-300">Withdraw</strong> — Send WBTC from your
-                Starknet wallet; it arrives in your Ethereum wallet.
+                <strong className="text-gray-300">Withdraw</strong> — Send a supported asset from
+                your Starknet wallet to another chain.
               </li>
             </ul>
             <p className="text-gray-400 leading-relaxed mt-4">
-              Bridged WBTC can then be deposited into Vesu or TrovesFi from the Yield page like
-              any other WBTC in your wallet.
+              Bridged assets can then be deposited into Vesu or TrovesFi from the Yield page like
+              any other tokens in your wallet.
             </p>
           </section>
 
