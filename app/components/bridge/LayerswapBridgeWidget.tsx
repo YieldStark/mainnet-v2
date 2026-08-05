@@ -44,17 +44,27 @@ export default function LayerswapBridgeWidget({
     [direction, starknetAddress]
   );
 
+  const config = useMemo(
+    () => ({
+      apiKey: BRIDGE_CONFIG.LAYERSWAP_API_KEY_MAINNET || undefined,
+      version: "mainnet" as const,
+      initialValues,
+    }),
+    [initialValues]
+  );
+
+  const callbacks = useMemo(
+    () => ({
+      onSwapComplete,
+    }),
+    [onSwapComplete]
+  );
+
   return (
     <LayerswapProvider
-      config={{
-        apiKey: BRIDGE_CONFIG.LAYERSWAP_API_KEY_MAINNET || undefined,
-        version: "mainnet",
-        initialValues,
-      }}
+      config={config}
       walletProviders={walletProviders}
-      callbacks={{
-        onSwapComplete,
-      }}
+      callbacks={callbacks}
     >
       <Swap />
     </LayerswapProvider>
