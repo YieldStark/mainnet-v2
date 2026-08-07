@@ -24,14 +24,29 @@ const require = createRequire(import.meta.url);
 function clientOnlyNodePolyfills(): Plugin {
   const polyfills = nodeStdlibBrowser as unknown as Record<string, string>;
 
+  // `node-stdlib-browser` maps each builtin to a package *directory*. Pre-resolve
+  // those to their concrete entry files once, up front, so `resolveId` can return
+  // a final id *synchronously*. Returning `this.resolve(...)` instead re-enters
+  // Rollup's async resolution pipeline, which deadlocks against
+  // `@rollup/plugin-commonjs` on the cyclic `crypto-browserify` dependency graph
+  // and crashes the production build with "Unexpected early exit ... Promises
+  // returned by plugins cannot resolve" (fine in dev/esbuild, fatal in `build`).
+  const resolved: Record<string, string> = {};
+  for (const [name, dir] of Object.entries(polyfills)) {
+    if (!dir) continue;
+    try {
+      resolved[name] = require.resolve(dir);
+    } catch {
+      resolved[name] = dir;
+    }
+  }
+
   return {
     name: "client-only-node-polyfills",
     enforce: "pre",
-    resolveId(source, importer, options) {
+    resolveId(source, _importer, options) {
       if (options?.ssr) return null;
-      const target = polyfills[source];
-      if (!target) return null;
-      return this.resolve(target, importer, { skipSelf: true });
+      return resolved[source] ?? null;
     },
     config() {
       return {
