@@ -70,29 +70,8 @@ export default function BridgePage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-[#101D22] rounded-4xl p-6">
-        <h1 className="text-3xl font-medium text-white mb-2">Bridge</h1>
-        <p className="text-gray-400">
-          Bridge assets into or out of Starknet. Non-custodial via{" "}
-          <a
-            href="https://layerswap.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#97FCE4] hover:underline"
-          >
-            Layerswap
-          </a>
-          — you sign every transfer, and funds always land directly in your own wallet.
-        </p>
-        <p className="text-sm text-gray-500 mt-2">
-          Source and destination chains are selectable in the widget (Ethereum, Base, Arbitrum,
-          Bitcoin, and others). Only Starknet is fixed for deposit/withdraw direction. Some
-          token/chain pairs are not supported by Layerswap — for example, WBTC from Arbitrum is
-          unavailable, but USDC and ETH from Arbitrum work.
-        </p>
-      </div>
-
       <div className="bg-[#101D22] rounded-4xl p-6 space-y-6">
+        <h1 className="text-3xl font-medium text-white">Bridge</h1>
         <div className="flex gap-2">
           {DIRECTIONS.map((d) => (
             <button

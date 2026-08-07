@@ -43,3 +43,12 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Blend the embedded Layerswap bridge widget (and its portaled chain/token
+   picker modal) into YieldStark branding by using the app's brand font.
+   Colors, radii and modal behavior are driven by the theme in
+   LayerswapBridgeWidget.tsx. */
+.layerswap-styles,
+.layerswap-styles * {
+  font-family: var(--font-neutral);
+}
