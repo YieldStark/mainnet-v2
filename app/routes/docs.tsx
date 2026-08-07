@@ -5,6 +5,7 @@ const SECTIONS = [
   { id: "introduction", label: "Introduction" },
   { id: "what-is-yieldstark", label: "What is YieldStark?" },
   { id: "features", label: "Features" },
+  { id: "bridge", label: "Bridge" },
   { id: "deposits", label: "Deposits" },
   { id: "withdrawals", label: "Withdrawals" },
   { id: "earn-yield", label: "Earn Yield" },
@@ -108,6 +109,10 @@ export default function DocsPage() {
                 Starknet address.
               </li>
               <li>
+                <strong className="text-gray-300">Bridge</strong> — Move supported assets into
+                or out of Starknet, non-custodially, via Layerswap.
+              </li>
+              <li>
                 <strong className="text-gray-300">Swap</strong> — Swap tokens on Starknet to get
                 WBTC or USDC for depositing.
               </li>
@@ -120,6 +125,38 @@ export default function DocsPage() {
                 disconnect.
               </li>
             </ul>
+          </section>
+
+          <section id="bridge" className="scroll-mt-6">
+            <h2 className="text-xl font-semibold text-white mb-3">Bridge</h2>
+            <p className="text-gray-400 leading-relaxed mb-4">
+              The Bridge page moves supported assets into or out of Starknet using{" "}
+              <a
+                href="https://layerswap.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#97FCE4] hover:underline"
+              >
+                Layerswap
+              </a>
+              , a third-party non-custodial bridge. YieldStark never takes custody of bridged
+              funds: you connect source and destination wallets, sign the transfer, and
+              Layerswap settles assets directly to your own address on the destination chain.
+            </p>
+            <ul className="text-gray-400 space-y-2">
+              <li>
+                <strong className="text-gray-300">Deposit</strong> — Send a supported asset from
+                another chain; it arrives in your connected Starknet wallet.
+              </li>
+              <li>
+                <strong className="text-gray-300">Withdraw</strong> — Send a supported asset from
+                your Starknet wallet to another chain.
+              </li>
+            </ul>
+            <p className="text-gray-400 leading-relaxed mt-4">
+              Bridged assets can then be deposited into Vesu or TrovesFi from the Yield page like
+              any other tokens in your wallet.
+            </p>
           </section>
 
           <section id="deposits" className="scroll-mt-6">
