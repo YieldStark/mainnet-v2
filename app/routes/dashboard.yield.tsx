@@ -32,6 +32,16 @@ import TrovesDepositModal from "~/components/ui/TrovesDepositModal";
 import TrovesWithdrawModal, {
   type TrovesPositionForWithdraw,
 } from "~/components/ui/TrovesWithdrawModal";
+import { parseUnits, formatUnits } from "~/lib/utils/parseUnits";
+import {
+  lendVesuPrivate,
+  withdrawVesuPrivate,
+  isPrivateLendPool,
+  privateLendPools,
+  readShielded,
+  isStrk20Wallet,
+} from "~/lib/services/strk20";
+import PrivacyModeToggle from "~/components/ui/PrivacyModeToggle";
 import type { TrovesPosition } from "~/components/dashboard/TrovesPositions";
 
 // USDC.e (bridged) for Troves WBTC/USDC.e strategy
@@ -49,6 +59,13 @@ export default function YieldPage() {
   const wallet = useWalletStore((state) => state.wallet);
   const vaultAddress = useWalletStore((state) => state.vaultAddress);
   const isConnected = useWalletStore((state) => state.isConnected);
+  const privacyMode = useWalletStore((state) => state.privacyMode);
+  const privacySupported = useWalletStore((state) => state.privacySupported);
+  const setPrivacyMode = useWalletStore((state) => state.setPrivacyMode);
+  const shieldedBalances = useWalletStore((state) => state.shieldedBalances);
+  const refreshShieldedBalances = useWalletStore(
+    (state) => state.refreshShieldedBalances
+  );
   const { poolsData, isLoading, error } = useVesuPoolData();
   const { strategies: trovesStrategies, isLoading: trovesLoading } = useTrovesStrategies();
   const currentNetwork = useNetworkStore((state) => state.currentNetwork);
@@ -159,6 +176,34 @@ export default function YieldPage() {
     fetchBalances();
   }, [address, currentNetwork.rpcUrl, refreshPositions]);
 
+  useEffect(() => {
+    const applyPrivateDeposits = async () => {
+      if (!privacyMode || !address) return;
+      const rpcUrl = currentNetwork.rpcUrl;
+      const depositedAmounts: Record<string, string> = {};
+      for (const pool of privateLendPools()) {
+        try {
+          const sharesStr = readShielded(shieldedBalances, pool.vTokenAddress);
+          const shares = parseUnits(sharesStr || "0", pool.decimals);
+          if (shares <= 0n) {
+            depositedAmounts[pool.id] = "0";
+            continue;
+          }
+          const assetAmount = await convertSharesToAssets(
+            rpcUrl,
+            pool.vTokenAddress,
+            shares
+          );
+          depositedAmounts[pool.id] = formatUnits(assetAmount, pool.decimals);
+        } catch {
+          depositedAmounts[pool.id] = "0";
+        }
+      }
+      setDepositedBalances((prev) => ({ ...prev, ...depositedAmounts }));
+    };
+    applyPrivateDeposits();
+  }, [privacyMode, address, shieldedBalances, currentNetwork.rpcUrl]);
+
   // Merge static pool config with dynamic data
   const getEnrichedPools = () => {
     return VESU_LENDING_POOLS.map((pool) => {
@@ -191,6 +236,16 @@ export default function YieldPage() {
       toast.error("Please connect your wallet first");
       return;
     }
+    if (privacyMode) {
+      if (!privacySupported || !isStrk20Wallet(wallet)) {
+        toast.error("Install Ready with STRK20 to use private mode");
+        return;
+      }
+      if (!isPrivateLendPool(pool.id)) {
+        toast.error("Private lend is available on Re7 USDC Core (USDC and WBTC) only");
+        return;
+      }
+    }
     setSelectedPool(pool);
     setModalMode(mode);
     setIsLendModalOpen(true);
@@ -204,6 +259,48 @@ export default function YieldPage() {
     const pool = VESU_LENDING_POOLS.find((p) => p.id === poolId);
     if (!pool) {
       throw new Error("Pool not found");
+    }
+
+    if (privacyMode) {
+      if (!isPrivateLendPool(pool.id)) {
+        throw new Error("Private lend is only available on Re7 USDC Core");
+      }
+      const amountBigInt = parseUnits(amount, pool.decimals);
+      if (amountBigInt <= 0n) throw new Error("Invalid amount");
+      toast.loading("Private lend: check Ready to prove and submit…", {
+        id: "deposit-status",
+      });
+      const depositTxHash = await lendVesuPrivate(account, {
+        underlyingAddress: pool.assetAddress,
+        vTokenAddress: pool.vTokenAddress,
+        assets: amountBigInt,
+        userAddress: address,
+      });
+      toast.success(
+        <a
+          href={`${currentNetwork.explorerUrl}/tx/${depositTxHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          Private lend submitted — View on Explorer
+        </a>,
+        { id: "deposit-status", duration: 8000 }
+      );
+      saveLocalTransaction({
+        hash: depositTxHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        type: "private-lend",
+        amount,
+        from: address,
+        to: pool.vTokenAddress,
+        status: "success",
+        blockNumber: 0,
+        contractLabel: `${pool.name} (private)`,
+      });
+      await refreshShieldedBalances();
+      setRefreshPositions((prev) => prev + 1);
+      return;
     }
 
     try {
@@ -532,8 +629,49 @@ export default function YieldPage() {
       throw new Error("Pool not found");
     }
 
+    if (privacyMode) {
+      if (!isPrivateLendPool(pool.id)) {
+        throw new Error("Private withdraw is only available on Re7 USDC Core");
+      }
+      const amountBigInt = parseUnits(amount, pool.decimals);
+      if (amountBigInt <= 0n) throw new Error("Invalid amount");
+      toast.loading("Private withdraw: check Ready to prove and submit…", {
+        id: "withdraw-status",
+      });
+      const withdrawTxHash = await withdrawVesuPrivate(account, {
+        underlyingAddress: pool.assetAddress,
+        vTokenAddress: pool.vTokenAddress,
+        assets: amountBigInt,
+        userAddress: address,
+      });
+      toast.success(
+        <a
+          href={`${currentNetwork.explorerUrl}/tx/${withdrawTxHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          Private withdraw submitted — View on Explorer
+        </a>,
+        { id: "withdraw-status", duration: 8000 }
+      );
+      saveLocalTransaction({
+        hash: withdrawTxHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        type: "unshield",
+        amount,
+        from: address,
+        to: pool.assetAddress,
+        status: "success",
+        blockNumber: 0,
+        contractLabel: `${pool.name} (private)`,
+      });
+      await refreshShieldedBalances();
+      setRefreshPositions((prev) => prev + 1);
+      return;
+    }
+
     try {
-      // Use account.address for all operations
       const operatingAddress = account.address;
       
       // Parse amount to smallest unit (wei)
@@ -692,11 +830,16 @@ export default function YieldPage() {
     }
   };
 
-  const wbtcPools = enrichedPools.filter((pool) => pool.asset === "WBTC");
-  const usdcPools = enrichedPools.filter((pool) => pool.asset === "USDC");
-  const btcfiPools = enrichedPools.filter(
-    (pool) => pool.asset !== "WBTC" && pool.asset !== "USDC"
-  );
+  const visiblePools = privacyMode
+    ? enrichedPools.filter((pool) => isPrivateLendPool(pool.id))
+    : enrichedPools;
+  const wbtcPools = visiblePools.filter((pool) => pool.asset === "WBTC");
+  const usdcPools = visiblePools.filter((pool) => pool.asset === "USDC");
+  const btcfiPools = privacyMode
+    ? []
+    : visiblePools.filter(
+        (pool) => pool.asset !== "WBTC" && pool.asset !== "USDC"
+      );
 
   const trovesUserBalances: Record<string, string> = {
     WBTC: balances.WBTC,
@@ -864,6 +1007,7 @@ export default function YieldPage() {
             key={`vesu-${refreshPositions}`}
             onManagePosition={handleOpenLendModal}
           />
+          {!privacyMode && (
           <TrovesPositions
             key={`troves-${refreshPositions}`}
             refreshTrigger={refreshPositions}
@@ -876,19 +1020,27 @@ export default function YieldPage() {
               setIsTrovesWithdrawModalOpen(true);
             }}
           />
+          )}
         </>
       )}
 
       {/* Header */}
       <div className="bg-[#101D22] rounded-4xl p-6">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-3xl font-medium text-white mb-2">Yield</h1>
             <p className="text-gray-400">
-              Earn yield by lending your assets to Vesu protocol pools
+              {privacyMode
+                ? "Private mode: lend shielded USDC or WBTC into Vesu. Identity is private; amounts on the Vesu leg are public."
+                : "Earn yield by lending your assets to Vesu protocol pools"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <PrivacyModeToggle
+              privacySupported={privacySupported}
+              privacyMode={privacyMode}
+              onChange={setPrivacyMode}
+            />
             {isLoading && (
               <RefreshCw className="animate-spin text-[#97FCE4]" size={20} />
             )}
@@ -917,7 +1069,7 @@ export default function YieldPage() {
       </div>
 
       {/* TrovesFi Yield (Ekubo WBTC/USDC & WBTC/USDC.e) */}
-      {trovesStrategies.length > 0 && (
+      {!privacyMode && trovesStrategies.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-medium text-white">TrovesFi Yield (Ekubo LP)</h2>
@@ -976,6 +1128,7 @@ export default function YieldPage() {
               key={pool.id}
               pool={pool}
               onDeposit={() => handleOpenLendModal(pool)}
+              privacyMode={privacyMode}
             />
           ))}
         </div>
@@ -995,6 +1148,7 @@ export default function YieldPage() {
                 key={pool.id}
                 pool={pool}
                 onDeposit={() => handleOpenLendModal(pool)}
+              privacyMode={privacyMode}
               />
             ))}
           </div>
@@ -1014,6 +1168,7 @@ export default function YieldPage() {
               key={pool.id}
               pool={pool}
               onDeposit={() => handleOpenLendModal(pool)}
+              privacyMode={privacyMode}
             />
           ))}
         </div>
@@ -1026,9 +1181,16 @@ export default function YieldPage() {
         pool={selectedPool}
         onDeposit={handleDeposit}
         onWithdraw={handleWithdraw}
-        userBalance={selectedPool ? balances[selectedPool.asset] ?? "0" : "0"}
+        userBalance={
+          selectedPool
+            ? privacyMode
+              ? readShielded(shieldedBalances, selectedPool.assetAddress)
+              : balances[selectedPool.asset] ?? "0"
+            : "0"
+        }
         depositedBalance={selectedPool ? depositedBalances[selectedPool.id] || "0" : "0"}
         mode={modalMode}
+        privacyMode={privacyMode}
       />
 
       {/* Troves Deposit Modal */}
@@ -1070,9 +1232,10 @@ export default function YieldPage() {
 interface PoolCardProps {
   pool: VesuPool;
   onDeposit: () => void;
+  privacyMode?: boolean;
 }
 
-function PoolCard({ pool, onDeposit }: PoolCardProps) {
+function PoolCard({ pool, onDeposit, privacyMode = false }: PoolCardProps) {
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case "Low":
@@ -1098,6 +1261,11 @@ function PoolCard({ pool, onDeposit }: PoolCardProps) {
           >
             {pool.riskLevel} Risk
           </span>
+          {privacyMode && (
+            <span className="inline-block ml-2 px-3 py-1 rounded-full text-xs font-medium border bg-[#97FCE4]/10 text-[#97FCE4] border-[#97FCE4]/30">
+              Private
+            </span>
+          )}
         </div>
         <div className="text-right">
           <div className="text-2xl font-bold text-[#97FCE4] flex items-center gap-1">

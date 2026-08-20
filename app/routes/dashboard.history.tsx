@@ -67,8 +67,16 @@ export default function HistoryPage() {
         return "Repay";
       case "withdraw_collateral":
         return "Withdraw Collateral";
-      default:
-        return "Transfer";
+      case "shield":
+        return "Shield";
+      case "unshield":
+        return "Unshield";
+      case "private-lend":
+        return "Private lend";
+      case "private-swap":
+        return "Private swap";
+      case "private-transfer":
+        return "Private send";
     }
   };
 
@@ -84,6 +92,13 @@ export default function HistoryPage() {
         return "bg-blue-500/10 text-blue-400 border-blue-500/20";
       case "withdraw_collateral":
         return "bg-orange-500/10 text-orange-400 border-orange-500/20";
+      case "shield":
+      case "private-lend":
+        return "bg-purple-500/10 text-purple-400 border-purple-500/20";
+      case "unshield":
+      case "private-swap":
+      case "private-transfer":
+        return "bg-indigo-500/10 text-indigo-400 border-indigo-500/20";
       default:
         return "bg-gray-500/10 text-gray-400 border-gray-500/20";
     }

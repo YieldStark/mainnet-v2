@@ -33,7 +33,9 @@ function clientOnlyNodePolyfills(): Plugin {
   // returned by plugins cannot resolve" (fine in dev/esbuild, fatal in `build`).
   const resolved: Record<string, string> = {};
   for (const [name, dir] of Object.entries(polyfills)) {
-    if (!dir) continue;
+    // Do not pre-resolve `buffer` to a raw CJS file. Returning that absolute
+    // path bypasses Vite's dep optimizer, so the browser executes `require()`.
+    if (!dir || name === "buffer") continue;
     try {
       resolved[name] = require.resolve(dir);
     } catch {
@@ -71,5 +73,59 @@ export default defineConfig({
   plugins: [tailwindcss(), reactRouter(), tsconfigPaths(), clientOnlyNodePolyfills()],
   resolve: {
     dedupe: ["react", "react-dom"],
+  },
+  // ClientOnlyApp in root.tsx SSR-renders only "Loading…" and skips the route
+  // tree, so Vite cannot crawl dashboard deps from the first HTML. They then
+  // get discovered after hydration in waves — each wave invalidates the
+  // optimizer and full-reloads the page (60–90s each on Windows). Include the
+  // first-paint graph here so it is prebundled when `npm run dev` starts.
+  optimizeDeps: {
+    // false: ClientOnlyApp SSR-renders "Loading…" so Vite cannot crawl the
+    // dashboard graph from the first HTML. Holding the crawl blocked the
+    // first request for a long time on Windows. Serve immediately; include[]
+    // still prebundles the heavy graph at `npm run dev` start.
+    holdUntilCrawlEnd: false,
+    include: [
+      "buffer",
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react-router",
+      "react-hot-toast",
+      "framer-motion",
+      "lucide-react",
+      "zustand",
+      "zustand/middleware",
+      "zustand/vanilla",
+      "starknet",
+      "@starknet-react/core",
+      "@starknet-react/chains",
+      "@starknet-io/get-starknet",
+      "@tanstack/react-query",
+      "recharts",
+      "@avnu/avnu-sdk",
+      "wagmi",
+      "viem",
+      "@layerswap/widget",
+      "@layerswap/wallet-evm",
+      "@layerswap/wallet-starknet",
+    ],
+  },
+  server: {
+    warmup: {
+      clientFiles: [
+        "./app/root.tsx",
+        "./app/routes/home.tsx",
+        "./app/routes/dashboard-layout.tsx",
+        "./app/routes/dashboard.index.tsx",
+        "./app/routes/dashboard.yield.tsx",
+        "./app/routes/swap.tsx",
+        "./app/components/layout/Layout.tsx",
+        "./app/components/layout/Header.tsx",
+        "./app/components/layout/Sidebar.tsx",
+        "./app/providers/starknet-provider.tsx",
+        "./app/lib/services/strk20.ts",
+      ],
+    },
   },
 });

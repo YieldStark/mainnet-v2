@@ -18,6 +18,15 @@ export const STARKNET_CONFIG = {
   EXPLORER_URL: 'https://voyager.online',
 }
 
+// STRK20 privacy pool (mainnet). Wallet API 0.10.3 — keys stay in Ready.
+export const STRK20_CONFIG = {
+  POOL_ADDRESS:
+    "0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a",
+  VESU_LENDING_HELPER:
+    "0x028b49bc7a48b92d06d436d90e889729d7161dfc2fef3f16b674029bf7abc336",
+  MIN_WALLET_API: "0.10.3",
+} as const
+
 // App Configuration
 export const APP_CONFIG = {
   VAULT_ADDRESS: '', // TODO: Set mainnet vault address

@@ -194,3 +194,9 @@ export const SOLVBTC_ADDRESS =
 
 // Placeholder for mainnet vault - replace with actual address
 export const VWBTC_ADDRESS = "" as const;
+
+// STRK20 mainnet pool + Vesu ERC-4626 anonymizer (see docs/STRK20_PRIVACY_PLAN.md)
+export const STRK20_POOL_ADDRESS =
+  "0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a" as const;
+export const VESU_LENDING_HELPER_ADDRESS =
+  "0x028b49bc7a48b92d06d436d90e889729d7161dfc2fef3f16b674029bf7abc336" as const;

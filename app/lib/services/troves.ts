@@ -4,7 +4,8 @@
  * You interact with the Vault contract only; deposit requires equal value of both tokens.
  */
 
-import { uint256, RpcProvider } from "starknet";
+import { uint256 } from "starknet";
+import { createRpcProvider } from "../utils/rpcProvider";
 import { approveToken, checkAllowance } from "../utils/tokenApproval";
 
 function parseUint256OrFelt(arr: string[]): bigint {
@@ -20,7 +21,7 @@ export async function getTrovesVaultShareBalance(
   userAddress: string
 ): Promise<bigint> {
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const provider = createRpcProvider(rpcUrl);
     const result = await provider.callContract({
       contractAddress: vaultAddress,
       entrypoint: "balance_of",
@@ -41,7 +42,7 @@ export async function getTrovesVaultTotalAssets(
   vaultAddress: string
 ): Promise<bigint> {
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const provider = createRpcProvider(rpcUrl);
     const result = await provider.callContract({
       contractAddress: vaultAddress,
       entrypoint: "total_assets",
@@ -62,7 +63,7 @@ export async function getTrovesVaultTotalSupply(
   vaultAddress: string
 ): Promise<bigint> {
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const provider = createRpcProvider(rpcUrl);
     const result = await provider.callContract({
       contractAddress: vaultAddress,
       entrypoint: "total_supply",
@@ -84,7 +85,7 @@ export async function getTrovesVaultConvertToAssets(
   shares: bigint
 ): Promise<bigint> {
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const provider = createRpcProvider(rpcUrl);
     const s = uint256.bnToUint256(shares);
     const result = await provider.callContract({
       contractAddress: vaultAddress,
@@ -299,7 +300,7 @@ export async function getTrovesVaultMaxWithdraw(
   vaultAddress: string,
   ownerAddress: string
 ): Promise<bigint> {
-  const provider = new RpcProvider({ nodeUrl: rpcUrl });
+  const provider = createRpcProvider(rpcUrl);
 
   try {
     const result = await provider.callContract({
