@@ -11,3 +11,4 @@ public/build/
 !/temp/README.md
 !/temp/vtoken_addressses.txt
 .react-router/
+.local/

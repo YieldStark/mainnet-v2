@@ -2,6 +2,8 @@ import { Link, useLocation } from 'react-router'
 import { useState, useEffect } from 'react'
 import { Menu } from 'lucide-react'
 import { connect, disconnect } from '@starknet-io/get-starknet'
+import type { StarknetWindowObject } from '@starknet-io/types-js'
+import { StarknetInjectedWallet } from '@starknet-io/get-starknet-wallet-standard-v6'
 import { WalletAccount, WalletAccountV6 } from 'starknet'
 import { useWalletStore } from '~/providers/wallet-store-provider'
 import { useNetworkStore } from '~/stores/network-store'
@@ -11,23 +13,29 @@ interface HeaderProps {
   onMenuClick: () => void
 }
 
-type StarknetWallet = Parameters<typeof WalletAccountV6.connect>[1]
+type LegacyStarknetWallet = Parameters<typeof WalletAccount.connect>[1]
+
+function toWalletStandard(injected: StarknetWindowObject) {
+  // get-starknet and wallet-standard pin different @starknet-io/types-js builds.
+  return new StarknetInjectedWallet(
+    injected as ConstructorParameters<typeof StarknetInjectedWallet>[0]
+  )
+}
 
 async function connectStarknetAccount(
   rpcUrl: string,
-  walletProvider: unknown
+  walletProvider: StarknetWindowObject
 ) {
   const provider = rpcProviderOptions(rpcUrl)
+  const walletStandard = toWalletStandard(walletProvider)
   try {
-    return await WalletAccountV6.connect(
-      provider,
-      walletProvider as StarknetWallet
+    return await WalletAccountV6.connect(provider, walletStandard)
+  } catch (error) {
+    console.warn(
+      'WalletAccountV6 connect failed; falling back to public-only WalletAccount',
+      error
     )
-  } catch {
-    return WalletAccount.connect(
-      provider,
-      walletProvider as Parameters<typeof WalletAccount.connect>[1]
-    )
+    return WalletAccount.connect(provider, walletProvider as LegacyStarknetWallet)
   }
 }
 
