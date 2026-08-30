@@ -1,4 +1,4 @@
-import { uint256, type STRK20_ACTION, type WalletAccountV6 } from "starknet";
+import { num, uint256, type STRK20_ACTION, type WalletAccountV6 } from "starknet";
 import { STRK20_CONFIG } from "~/lib/config";
 import { USDC_ADDRESS, WBTC_ADDRESS } from "~/lib/utils/Constants";
 import { formatUnits } from "~/lib/utils/parseUnits";
@@ -20,12 +20,12 @@ export function normalizeAddr(address: string): string {
   return address.replace(/^0x/, "").toLowerCase().padStart(64, "0");
 }
 
+/** Canonical felt encoding for Wallet API actions (addresses, amounts, enums). */
 export function toFelt(value: bigint | number | string): string {
   if (typeof value === "string") {
     if (value === "OPEN" || value.startsWith("${")) return value;
-    if (value.startsWith("0x") || value.startsWith("0X")) return value;
   }
-  return `0x${BigInt(value).toString(16)}`;
+  return num.toHex(num.toBigInt(value));
 }
 
 export function isStrk20Wallet(account: unknown): account is Strk20Account {
@@ -62,11 +62,30 @@ async function invokeActions(
   actions: STRK20_ACTION[],
   dryRun = true
 ): Promise<string> {
-  if (dryRun && typeof account.strk20PrepareInvoke === "function") {
-    await account.strk20PrepareInvoke(actions, true);
+  try {
+    if (dryRun && typeof account.strk20PrepareInvoke === "function") {
+      await account.strk20PrepareInvoke(actions, true);
+    }
+    const { transaction_hash } = await account.strk20InvokeTransaction(actions);
+    return transaction_hash;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/INVALID_REQUEST_PAYLOAD/i.test(msg)) {
+      throw new Error(
+        "Ready rejected the private transaction payload (INVALID_REQUEST_PAYLOAD). " +
+          "Use the same asset you shielded (e.g. shield USDC → lend on Re7 USDC Core), " +
+          "and ensure the amount is ≤ your shielded balance."
+      );
+    }
+    if (/TRANSACTION_EXECUTION_ERROR|Paymaster error 156/i.test(msg)) {
+      throw new Error(
+        "Private transaction reverted on-chain (TRANSACTION_EXECUTION_ERROR). " +
+          "Common causes: amount exceeds shielded balance, wrong asset/pool, or Vesu helper failure. " +
+          "Try a smaller amount after confirming shielded balance on the dashboard."
+      );
+    }
+    throw err;
   }
-  const { transaction_hash } = await account.strk20InvokeTransaction(actions);
-  return transaction_hash;
 }
 
 export async function probePrivacySupport(account: unknown): Promise<boolean> {
@@ -155,7 +174,7 @@ export async function shield(
   const strk20 = requireStrk20(account);
   if (amount <= 0n) throw new Error("Invalid amount");
   const actions: STRK20_ACTION[] = [
-    { type: "deposit", token, amount: toFelt(amount) },
+    { type: "deposit", token: toFelt(token), amount: toFelt(amount) },
   ];
   return invokeActions(strk20, actions);
 }
@@ -170,7 +189,12 @@ export async function unshield(
   if (amount <= 0n) throw new Error("Invalid amount");
   if (!recipient) throw new Error("Recipient required");
   const actions: STRK20_ACTION[] = [
-    { type: "withdraw", token, amount: toFelt(amount), recipient },
+    {
+      type: "withdraw",
+      token: toFelt(token),
+      amount: toFelt(amount),
+      recipient: toFelt(recipient),
+    },
   ];
   return invokeActions(strk20, actions);
 }
@@ -184,7 +208,12 @@ export async function transferShielded(
   const strk20 = requireStrk20(account);
   if (amount <= 0n) throw new Error("Invalid amount");
   const actions: STRK20_ACTION[] = [
-    { type: "transfer", token, amount: toFelt(amount), recipient },
+    {
+      type: "transfer",
+      token: toFelt(token),
+      amount: toFelt(amount),
+      recipient: toFelt(recipient),
+    },
   ];
   return invokeActions(strk20, actions);
 }
@@ -200,10 +229,10 @@ function vesuHelperCalldata(
   const u = uint256.bnToUint256(assets);
   return [
     toFelt(operation),
-    inToken,
-    outToken,
-    toFelt(BigInt(u.low)),
-    toFelt(BigInt(u.high)),
+    toFelt(inToken),
+    toFelt(outToken),
+    toFelt(u.low),
+    toFelt(u.high),
     "${openNoteIds[0]}",
   ];
 }
@@ -219,16 +248,24 @@ export async function lendVesuPrivate(
 ): Promise<string> {
   const strk20 = requireStrk20(account);
   if (params.assets <= 0n) throw new Error("Invalid amount");
+  const helper = toFelt(STRK20_CONFIG.VESU_LENDING_HELPER);
+  // Official flow: withdraw underlying to helper → open vToken note → invoke helper.
   const actions: STRK20_ACTION[] = [
     {
+      type: "withdraw",
+      token: toFelt(params.underlyingAddress),
+      amount: toFelt(params.assets),
+      recipient: helper,
+    },
+    {
       type: "transfer",
-      token: params.vTokenAddress,
+      token: toFelt(params.vTokenAddress),
       amount: "OPEN",
-      recipient: params.userAddress,
+      recipient: toFelt(params.userAddress),
     },
     {
       type: "invoke",
-      contract: STRK20_CONFIG.VESU_LENDING_HELPER,
+      contract: helper,
       calldata: vesuHelperCalldata(
         LENDING_DEPOSIT,
         params.underlyingAddress,
@@ -247,20 +284,31 @@ export async function withdrawVesuPrivate(
     vTokenAddress: string;
     assets: bigint;
     userAddress: string;
+    /** Shielded vToken shares to send to the helper (defaults to `assets`). */
+    vTokenShares?: bigint;
   }
 ): Promise<string> {
   const strk20 = requireStrk20(account);
   if (params.assets <= 0n) throw new Error("Invalid amount");
+  const vTokenShares = params.vTokenShares ?? params.assets;
+  if (vTokenShares <= 0n) throw new Error("Invalid vToken amount");
+  const helper = toFelt(STRK20_CONFIG.VESU_LENDING_HELPER);
   const actions: STRK20_ACTION[] = [
     {
+      type: "withdraw",
+      token: toFelt(params.vTokenAddress),
+      amount: toFelt(vTokenShares),
+      recipient: helper,
+    },
+    {
       type: "transfer",
-      token: params.underlyingAddress,
+      token: toFelt(params.underlyingAddress),
       amount: "OPEN",
-      recipient: params.userAddress,
+      recipient: toFelt(params.userAddress),
     },
     {
       type: "invoke",
-      contract: STRK20_CONFIG.VESU_LENDING_HELPER,
+      contract: helper,
       calldata: vesuHelperCalldata(
         LENDING_WITHDRAW,
         params.vTokenAddress,

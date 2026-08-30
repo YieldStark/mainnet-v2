@@ -267,6 +267,15 @@ export default function YieldPage() {
       }
       const amountBigInt = parseUnits(amount, pool.decimals);
       if (amountBigInt <= 0n) throw new Error("Invalid amount");
+      const shielded = readShielded(shieldedBalances, pool.assetAddress);
+      const shieldedRaw = parseUnits(shielded || "0", pool.decimals);
+      if (shieldedRaw < amountBigInt) {
+        throw new Error(
+          `Insufficient shielded ${pool.asset}. Shield ${pool.asset} on the dashboard first (you have ${shielded || "0"} shielded).`
+        );
+      }
+      const userAddress =
+        (account as { address?: string }).address ?? address;
       toast.loading("Private lend: check Ready to prove and submit…", {
         id: "deposit-status",
       });
@@ -274,7 +283,7 @@ export default function YieldPage() {
         underlyingAddress: pool.assetAddress,
         vTokenAddress: pool.vTokenAddress,
         assets: amountBigInt,
-        userAddress: address,
+        userAddress,
       });
       toast.success(
         <a
