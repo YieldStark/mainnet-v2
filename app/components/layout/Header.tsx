@@ -2,12 +2,41 @@ import { Link, useLocation } from 'react-router'
 import { useState, useEffect } from 'react'
 import { Menu } from 'lucide-react'
 import { connect, disconnect } from '@starknet-io/get-starknet'
-import { WalletAccount } from 'starknet'
+import type { StarknetWindowObject } from '@starknet-io/types-js'
+import { StarknetInjectedWallet } from '@starknet-io/get-starknet-wallet-standard-v6'
+import { WalletAccount, WalletAccountV6 } from 'starknet'
 import { useWalletStore } from '~/providers/wallet-store-provider'
 import { useNetworkStore } from '~/stores/network-store'
+import { rpcProviderOptions } from '~/lib/utils/rpcProvider'
 
 interface HeaderProps {
   onMenuClick: () => void
+}
+
+type LegacyStarknetWallet = Parameters<typeof WalletAccount.connect>[1]
+
+function toWalletStandard(injected: StarknetWindowObject) {
+  // get-starknet and wallet-standard pin different @starknet-io/types-js builds.
+  return new StarknetInjectedWallet(
+    injected as ConstructorParameters<typeof StarknetInjectedWallet>[0]
+  )
+}
+
+async function connectStarknetAccount(
+  rpcUrl: string,
+  walletProvider: StarknetWindowObject
+) {
+  const provider = rpcProviderOptions(rpcUrl)
+  const walletStandard = toWalletStandard(walletProvider)
+  try {
+    return await WalletAccountV6.connect(provider, walletStandard)
+  } catch (error) {
+    console.warn(
+      'WalletAccountV6 connect failed; falling back to public-only WalletAccount',
+      error
+    )
+    return WalletAccount.connect(provider, walletProvider as LegacyStarknetWallet)
+  }
 }
 
 const Header = ({ onMenuClick }: HeaderProps) => {
@@ -16,9 +45,14 @@ const Header = ({ onMenuClick }: HeaderProps) => {
   const [isConnecting, setIsConnecting] = useState(false)
   const currentNetwork = useNetworkStore((state) => state.currentNetwork)
 
-  const { isConnected, connectWallet, disconnectWallet, updateBalances } = useWalletStore(
-    (state) => state
-  )
+  const {
+    isConnected,
+    connectWallet,
+    disconnectWallet,
+    updateBalances,
+    privacySupported,
+    privacyMode,
+  } = useWalletStore((state) => state)
 
   const navigationItems = [
     { name: 'Dashboard', href: '/dashboard' },
@@ -31,8 +65,8 @@ const Header = ({ onMenuClick }: HeaderProps) => {
       try {
         const lastWallet = await connect({ modalMode: 'neverAsk' })
         if (lastWallet) {
-          const myWalletAccount = await WalletAccount.connect(
-            { nodeUrl: currentNetwork.rpcUrl },
+          const myWalletAccount = await connectStarknetAccount(
+            currentNetwork.rpcUrl,
             lastWallet
           )
           connectWallet(myWalletAccount)
@@ -56,8 +90,8 @@ const Header = ({ onMenuClick }: HeaderProps) => {
       })
 
       if (selectedWallet) {
-        const myWalletAccount = await WalletAccount.connect(
-          { nodeUrl: currentNetwork.rpcUrl },
+        const myWalletAccount = await connectStarknetAccount(
+          currentNetwork.rpcUrl,
           selectedWallet
         )
 
@@ -135,6 +169,11 @@ const Header = ({ onMenuClick }: HeaderProps) => {
           <div className="flex items-center space-x-3 lg:space-x-6">
             {isConnected ? (
               <div className="flex items-center space-x-3">
+                {privacySupported && privacyMode && (
+                  <span className="hidden md:inline-flex px-2 py-1 rounded-full text-xs font-medium bg-[#97FCE4]/15 text-[#97FCE4] border border-[#97FCE4]/30">
+                    Private
+                  </span>
+                )}
                 {vaultAddress && (
                   <div className="hidden sm:block text-xs text-gray-400 font-mono">
                     {formatAddress(vaultAddress)}

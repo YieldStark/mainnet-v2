@@ -9,6 +9,7 @@ import {
   getVerifiedTokens,
   getSwapQuotes,
   runSwap,
+  runPrivateSwap,
   type Token,
   type Quote,
 } from '~/lib/avnu-swap'
@@ -16,6 +17,8 @@ import { parseUnits, formatUnits } from '~/lib/utils/parseUnits'
 import { fetchTokenBalance } from '~/lib/utils/fetchTokenBalance'
 import toast from 'react-hot-toast'
 import { recordSwap } from '~/lib/utils/recordTransaction'
+import PrivacyModeToggle from '~/components/ui/PrivacyModeToggle'
+import { readShielded } from '~/lib/services/strk20'
 
 const BATCH_SIZE = 10
 const QUOTE_DEBOUNCE_MS = 400
@@ -36,6 +39,11 @@ export default function SwapPage() {
   const isConnected = useWalletStore((s) => s.isConnected)
   const wallet = useWalletStore((s) => s.wallet)
   const updateBalances = useWalletStore((s) => s.updateBalances)
+  const privacySupported = useWalletStore((s) => s.privacySupported)
+  const privacyMode = useWalletStore((s) => s.privacyMode)
+  const setPrivacyMode = useWalletStore((s) => s.setPrivacyMode)
+  const shieldedBalances = useWalletStore((s) => s.shieldedBalances)
+  const refreshShieldedBalances = useWalletStore((s) => s.refreshShieldedBalances)
 
   const [tokens, setTokens] = useState<Token[]>([])
   const [tokensLoading, setTokensLoading] = useState(true)
@@ -191,7 +199,9 @@ export default function SwapPage() {
     setSwapping(true)
     setLastSwapTxHash(null)
     try {
-      const { transactionHash } = await runSwap({ provider: account, quote })
+      const { transactionHash } = privacyMode
+        ? await runPrivateSwap({ account: wallet, quote })
+        : await runSwap({ provider: account, quote })
       toast.success('Swap complete')
       
       const recordResult = await recordSwap({
@@ -214,6 +224,7 @@ export default function SwapPage() {
       setQuote(null)
       setLastSwapTxHash(transactionHash)
       updateBalances(currentNetwork.rpcUrl)
+      if (privacyMode) await refreshShieldedBalances()
       setBalanceRefreshKey((k) => k + 1)
     } catch (e) {
       console.error(e)
@@ -221,7 +232,13 @@ export default function SwapPage() {
     } finally {
       setSwapping(false)
     }
-  }, [quote, wallet, vaultAddress, sellToken, buyToken, currentNetwork.rpcUrl, updateBalances])
+  }, [quote, wallet, vaultAddress, sellToken, buyToken, currentNetwork.rpcUrl, updateBalances, privacyMode, refreshShieldedBalances])
+
+  const sellBalance = sellToken
+    ? privacyMode
+      ? readShielded(shieldedBalances, sellToken.address)
+      : (balances[sellToken.address] ?? '0')
+    : '0'
 
   const canSwap =
     isConnected &&
@@ -230,7 +247,8 @@ export default function SwapPage() {
     buyToken &&
     sellAmount.trim() &&
     parseUnits(sellAmount.trim(), sellToken.decimals) > 0n &&
-    !swapping
+    !swapping &&
+    (!privacyMode || parseUnits(sellBalance || '0', sellToken.decimals) > 0n)
 
   /** Trim trailing zeros for display in the sell input */
   const formatSellInput = (raw: bigint, decimals: number) => {
@@ -241,7 +259,7 @@ export default function SwapPage() {
 
   const applySellBalanceFraction = (fraction: number) => {
     if (!sellToken || !vaultAddress) return
-    const balStr = (balances[sellToken.address] ?? '0').replace(/,/g, '').trim()
+    const balStr = sellBalance.replace(/,/g, '').trim()
     const whole = parseUnits(balStr, sellToken.decimals)
     if (whole <= 0n) {
       toast.error('No balance for this token')
@@ -261,7 +279,20 @@ export default function SwapPage() {
     <Layout showSidebar={true}>
       <div className="w-full min-h-[calc(100vh-180px)] flex items-center justify-center py-8">
         <div className="bg-[#101D22] rounded-4xl p-6 max-w-lg w-full">
-          <h1 className="text-2xl font-medium text-white mb-6">Swap</h1>
+          <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+            <h1 className="text-2xl font-medium text-white">Swap</h1>
+            <PrivacyModeToggle
+              privacySupported={privacySupported}
+              privacyMode={privacyMode}
+              onChange={setPrivacyMode}
+            />
+          </div>
+          {privacyMode && (
+            <p className="text-sm text-gray-400 mb-4">
+              Sell token must already be shielded. Amounts on the swap leg are
+              public; your identity is not.
+            </p>
+          )}
 
           {/* Sell */}
           <div className="rounded-2xl bg-[#0F1A1F] border border-gray-800 p-4 mb-4">
@@ -306,7 +337,7 @@ export default function SwapPage() {
             {sellToken && vaultAddress && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <p className="text-sm text-gray-500">
-                  Balance: {balances[sellToken.address] ?? '0'}
+                  {privacyMode ? 'Shielded' : 'Balance'}: {sellBalance}
                 </p>
                 <div className="flex gap-1.5">
                   <button
@@ -391,7 +422,11 @@ export default function SwapPage() {
               onClick={handleSwap}
               className="w-full py-4 rounded-xl font-medium text-black bg-[#97FCE4] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
             >
-              {swapping ? 'Swapping…' : 'Swap'}
+              {swapping
+                ? 'Swapping…'
+                : privacyMode
+                  ? 'Private swap'
+                  : 'Swap'}
             </button>
           )}
 

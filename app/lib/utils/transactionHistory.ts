@@ -4,7 +4,18 @@ import { VWBTC_ADDRESS, WBTC_ADDRESS } from '~/lib/utils/Constants'
 export interface Transaction {
   hash: string
   timestamp: number
-  type: 'deposit' | 'withdraw' | 'transfer' | 'borrow' | 'repay' | 'withdraw_collateral'
+  type:
+    | 'deposit'
+    | 'withdraw'
+    | 'transfer'
+    | 'borrow'
+    | 'repay'
+    | 'withdraw_collateral'
+    | 'shield'
+    | 'unshield'
+    | 'private-lend'
+    | 'private-swap'
+    | 'private-transfer'
   amount: string
   from: string
   to: string

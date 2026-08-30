@@ -23,4 +23,8 @@ export default [
   route("swap", "routes/swap.tsx"),
   route("docs", "routes/docs.tsx"),
   route("support", "routes/support.tsx"),
+  route(
+    ".well-known/appspecific/com.chrome.devtools.json",
+    "routes/chrome-devtools-json.ts"
+  ),
 ] satisfies RouteConfig;

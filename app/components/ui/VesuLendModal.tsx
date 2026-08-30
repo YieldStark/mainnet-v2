@@ -11,6 +11,7 @@ interface VesuLendModalProps {
   userBalance: string;
   depositedBalance?: string;
   mode?: "deposit" | "withdraw";
+  privacyMode?: boolean;
 }
 
 export default function VesuLendModal({
@@ -22,6 +23,7 @@ export default function VesuLendModal({
   userBalance,
   depositedBalance = "0",
   mode = "deposit",
+  privacyMode = false,
 }: VesuLendModalProps) {
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -159,6 +161,12 @@ export default function VesuLendModal({
           </div>
 
           <p className="text-sm text-gray-400">{pool.description}</p>
+          {privacyMode && (
+            <p className="text-sm text-[#97FCE4]/80">
+              Your Vesu shares sit as notes. APY is the same pool APY. Amounts on
+              the Vesu leg are visible; your identity is not.
+            </p>
+          )}
 
           <div className="space-y-2">
             <div className="flex justify-between items-center">

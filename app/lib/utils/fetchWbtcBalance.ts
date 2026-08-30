@@ -1,4 +1,4 @@
-import { RpcProvider } from 'starknet'
+import { createRpcProvider } from '~/lib/utils/rpcProvider'
 import { uint256ToDecimalString } from '~/lib/u256'
 import { WBTC_ADDRESS } from '~/lib/utils/Constants'
 
@@ -24,7 +24,7 @@ export async function fetchWbtcBalance(
   if (!address) return 0
 
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl })
+    const provider = createRpcProvider(rpcUrl)
     const raw = await provider.callContract({
       contractAddress: WBTC_ADDRESS,
       entrypoint: 'balance_of',

@@ -4,6 +4,7 @@
  * EVM/Starknet wallet stack (and non-standard ESM package layout) is never
  * pulled into the server module graph — only the client bundle imports it.
  */
+import "~/lib/buffer-polyfill";
 import { useMemo } from "react";
 import { LayerswapProvider, Swap, type ThemeData } from "@layerswap/widget";
 import { createEVMProvider } from "@layerswap/wallet-evm";

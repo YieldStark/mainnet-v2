@@ -8,9 +8,15 @@ import ReceiveModal from "~/components/ui/ReceiveModal";
 import { useWalletStore } from "~/providers/wallet-store-provider";
 import { useNetworkStore } from "~/stores/network-store";
 import { uint256 } from "starknet";
-import { WBTC_ADDRESS } from "~/lib/utils/Constants";
+import { WBTC_ADDRESS, USDC_ADDRESS } from "~/lib/utils/Constants";
 import toast from "react-hot-toast";
 import { saveLocalTransaction } from "~/lib/utils/transactionHistory";
+import { shield, unshield, transferShielded, readShielded } from "~/lib/services/strk20";
+import ShieldModal from "~/components/ui/ShieldModal";
+import PrivateTransferModal from "~/components/ui/PrivateTransferModal";
+import PrivacyModeToggle from "~/components/ui/PrivacyModeToggle";
+import { fetchTokenBalance } from "~/lib/utils/fetchTokenBalance";
+import { parseUnits } from "~/lib/utils/parseUnits";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Dashboard - YieldStark" }];
@@ -21,8 +27,18 @@ export default function DashboardPage() {
   const wallet = useWalletStore((state) => state.wallet);
   const isConnected = useWalletStore((state) => state.isConnected);
   const updateBalances = useWalletStore((state) => state.updateBalances);
+  const privacySupported = useWalletStore((state) => state.privacySupported);
+  const privacyMode = useWalletStore((state) => state.privacyMode);
+  const setPrivacyMode = useWalletStore((state) => state.setPrivacyMode);
+  const shieldedBalances = useWalletStore((state) => state.shieldedBalances);
+  const refreshShieldedBalances = useWalletStore(
+    (state) => state.refreshShieldedBalances
+  );
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
   const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+  const [isShieldModalOpen, setIsShieldModalOpen] = useState(false);
+  const [isPrivateTransferOpen, setIsPrivateTransferOpen] = useState(false);
+  const [usdcPublic, setUsdcPublic] = useState("0");
   const totalBalance = useWalletStore((state) => state.totalBalance);
   const wbtcBalance = totalBalance > 0 ? totalBalance.toFixed(8) : "0";
   const [refreshKey, setRefreshKey] = useState(0);
@@ -32,8 +48,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (isConnected && vaultAddress && currentNetwork.rpcUrl) {
       updateBalances(currentNetwork.rpcUrl);
+      fetchTokenBalance(currentNetwork.rpcUrl, USDC_ADDRESS, vaultAddress, 6)
+        .then(setUsdcPublic)
+        .catch(() => setUsdcPublic("0"));
     }
-  }, [isConnected, vaultAddress, currentNetwork.rpcUrl, updateBalances]);
+  }, [isConnected, vaultAddress, currentNetwork.rpcUrl, updateBalances, refreshKey]);
 
   const formatAddress = (address: string) => {
     if (!address) return "";
@@ -166,6 +185,86 @@ export default function DashboardPage() {
     }
   };
 
+  const handleShield = async (
+    tokenAddress: string,
+    amount: string,
+    decimals: number
+  ) => {
+    if (!wallet || !vaultAddress) throw new Error("Wallet not connected");
+    const raw = parseUnits(amount, decimals);
+    toast.loading("Shielding… Check Ready. Deposit size and address are public.", {
+      id: "shield-status",
+    });
+    const hash = await shield(wallet, tokenAddress, raw);
+    toast.success("Shield submitted", { id: "shield-status" });
+    saveLocalTransaction({
+      hash,
+      timestamp: Math.floor(Date.now() / 1000),
+      type: "shield",
+      amount,
+      from: vaultAddress,
+      to: tokenAddress,
+      status: "success",
+      blockNumber: 0,
+      contractLabel: "STRK20 pool",
+    });
+    await refreshShieldedBalances();
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handleUnshield = async (
+    tokenAddress: string,
+    amount: string,
+    decimals: number
+  ) => {
+    if (!wallet || !vaultAddress) throw new Error("Wallet not connected");
+    const raw = parseUnits(amount, decimals);
+    toast.loading("Unshielding to your public address…", { id: "shield-status" });
+    const hash = await unshield(wallet, tokenAddress, raw, vaultAddress);
+    toast.success("Unshield submitted", { id: "shield-status" });
+    saveLocalTransaction({
+      hash,
+      timestamp: Math.floor(Date.now() / 1000),
+      type: "unshield",
+      amount,
+      from: vaultAddress,
+      to: vaultAddress,
+      status: "success",
+      blockNumber: 0,
+      contractLabel: "STRK20 pool",
+    });
+    await refreshShieldedBalances();
+    updateBalances(currentNetwork.rpcUrl);
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handlePrivateTransfer = async (
+    tokenAddress: string,
+    amount: string,
+    decimals: number,
+    recipient: string
+  ) => {
+    if (!wallet || !vaultAddress) throw new Error("Wallet not connected");
+    const raw = parseUnits(amount, decimals);
+    toast.loading("Private send: check Ready to prove and submit…", {
+      id: "private-transfer",
+    });
+    const hash = await transferShielded(wallet, tokenAddress, raw, recipient);
+    toast.success("Private send submitted", { id: "private-transfer" });
+    saveLocalTransaction({
+      hash,
+      timestamp: Math.floor(Date.now() / 1000),
+      type: "private-transfer",
+      amount,
+      from: vaultAddress,
+      to: recipient,
+      status: "success",
+      blockNumber: 0,
+      contractLabel: "STRK20 pool",
+    });
+    await refreshShieldedBalances();
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-[#101D22] rounded-4xl p-6">
@@ -225,7 +324,7 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <div className="flex space-x-4 mb-4">
+              <div className="flex flex-wrap gap-4 mb-4">
                 <button
                   onClick={() => setIsSendModalOpen(true)}
                   disabled={!isConnected}
@@ -240,6 +339,62 @@ export default function DashboardPage() {
                 >
                   Receive
                 </button>
+                <button
+                  onClick={() => setIsShieldModalOpen(true)}
+                  disabled={!isConnected || !privacySupported}
+                  title={
+                    privacySupported
+                      ? "Shield or unshield WBTC / USDC"
+                      : "Install Ready with STRK20 to shield"
+                  }
+                  className="px-6 py-2 bg-[#1a2832] text-[#97FCE4] font-medium rounded-full border border-[#97FCE4]/40 hover:bg-[#24343f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Shield
+                </button>
+                <button
+                  onClick={() => setIsPrivateTransferOpen(true)}
+                  disabled={!isConnected || !privacySupported}
+                  title={
+                    privacySupported
+                      ? "Send shielded WBTC or USDC to another registered user"
+                      : "Install Ready with STRK20 to send privately"
+                  }
+                  className="px-6 py-2 bg-[#1a2832] text-[#97FCE4] font-medium rounded-full border border-[#97FCE4]/40 hover:bg-[#24343f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Private send
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-gray-800 bg-[#0A1215] p-4">
+                <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                  <h4 className="text-white font-medium">Shielded balances</h4>
+                  <PrivacyModeToggle
+                    privacySupported={privacySupported}
+                    privacyMode={privacyMode}
+                    onChange={setPrivacyMode}
+                  />
+                </div>
+                {!privacySupported ? (
+                  <p className="text-sm text-gray-500">
+                    Install Ready with STRK20 (Wallet API 0.10.3+) to shield WBTC
+                    and USDC. Public yield stays available.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-gray-500">Shielded WBTC</p>
+                      <p className="text-white font-mono">
+                        {readShielded(shieldedBalances, WBTC_ADDRESS)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Shielded USDC</p>
+                      <p className="text-white font-mono">
+                        {readShielded(shieldedBalances, USDC_ADDRESS)}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -265,6 +420,28 @@ export default function DashboardPage() {
         isOpen={isReceiveModalOpen}
         onClose={() => setIsReceiveModalOpen(false)}
         walletAddress={vaultAddress}
+      />
+
+      <ShieldModal
+        isOpen={isShieldModalOpen}
+        onClose={() => setIsShieldModalOpen(false)}
+        publicBalances={{ WBTC: wbtcBalance, USDC: usdcPublic }}
+        shieldedBalances={{
+          WBTC: readShielded(shieldedBalances, WBTC_ADDRESS),
+          USDC: readShielded(shieldedBalances, USDC_ADDRESS),
+        }}
+        onShield={handleShield}
+        onUnshield={handleUnshield}
+      />
+
+      <PrivateTransferModal
+        isOpen={isPrivateTransferOpen}
+        onClose={() => setIsPrivateTransferOpen(false)}
+        shieldedBalances={{
+          WBTC: readShielded(shieldedBalances, WBTC_ADDRESS),
+          USDC: readShielded(shieldedBalances, USDC_ADDRESS),
+        }}
+        onTransfer={handlePrivateTransfer}
       />
     </div>
   );

@@ -1,5 +1,4 @@
 // Vesu Pool Data Fetcher - Real-time APY, TVL, and Pool Statistics
-import { RpcProvider, Contract, uint256 } from "starknet";
 import { VESU_CONTRACTS, VESU_VTOKENS } from "./vesu";
 
 // Simplified ERC-4626 vToken ABI (minimal, compatible with starknet.js)

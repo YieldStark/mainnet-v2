@@ -148,7 +148,12 @@ Public RPCs have rate limits. Solutions:
 
 ---
 
-## Module Import Errors
+## Why Loading… stuck with `unsupported channel for spec version: 0.8.1`
+
+**Cause:** After upgrading to `starknet@10`, RPC **0.8.x is no longer supported**. `@starknet-react/core`'s `publicProvider()` still hardcodes `specVersion: "0.8.1"`. That throws inside `<StarknetProvider>`, React's error boundary retries forever, and the UI never leaves Loading….
+
+**Fix:** Use `jsonRpcProvider` with `specVersion: "0.9.0"` via `app/lib/utils/rpcProvider.ts`. Hard-refresh after restarting `npm run dev`.
+
 
 ### Error: Cannot find module '@remix-run/node'
 **Cause**: Old import statement

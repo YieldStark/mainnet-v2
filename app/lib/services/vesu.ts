@@ -1,5 +1,6 @@
 // Vesu V2 Lending Service
-import { CallData, RpcProvider, uint256 } from "starknet";
+import { CallData, uint256 } from "starknet";
+import { createRpcProvider } from "../utils/rpcProvider";
 import {
   WBTC_ADDRESS,
   USDC_ADDRESS,
@@ -523,7 +524,7 @@ export async function getVTokenBalance(
   userAddress: string
 ): Promise<bigint> {
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const provider = createRpcProvider(rpcUrl);
     
     const result = await provider.callContract({
       contractAddress: vTokenAddress,
@@ -555,7 +556,7 @@ export async function convertSharesToAssets(
   shares: bigint
 ): Promise<bigint> {
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const provider = createRpcProvider(rpcUrl);
     const sharesUint256 = uint256.bnToUint256(shares);
     
     const result = await provider.callContract({
@@ -588,7 +589,7 @@ export async function getMaxWithdraw(
   ownerAddress: string
 ): Promise<bigint> {
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const provider = createRpcProvider(rpcUrl);
     
     const result = await provider.callContract({
       contractAddress: vTokenAddress,
@@ -619,7 +620,7 @@ export async function getTotalAssets(
   vTokenAddress: string
 ): Promise<bigint> {
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const provider = createRpcProvider(rpcUrl);
     
     const result = await provider.callContract({
       contractAddress: vTokenAddress,
@@ -669,7 +670,7 @@ export async function getVesuLoanPosition(
   collateralDecimals: number,
   debtDecimals: number
 ): Promise<VesuLoanPosition> {
-  const provider = new RpcProvider({ nodeUrl: rpcUrl });
+  const provider = createRpcProvider(rpcUrl);
 
   const [positionRaw, pairConfigRaw, collateralPriceRaw, debtPriceRaw] = await Promise.all([
     provider.callContract({

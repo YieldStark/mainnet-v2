@@ -1,4 +1,4 @@
-import { RpcProvider } from 'starknet'
+import { createRpcProvider } from '~/lib/utils/rpcProvider'
 import { uint256ToDecimalString } from '~/lib/u256'
 
 function normalizeAddress(accountAddress: string): string {
@@ -24,7 +24,7 @@ export async function fetchTokenBalance(
   }
 
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl })
+    const provider = createRpcProvider(rpcUrl)
     const raw = await provider.callContract({
       contractAddress: tokenAddress,
       entrypoint: 'balance_of',

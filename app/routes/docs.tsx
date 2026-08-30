@@ -10,6 +10,7 @@ const SECTIONS = [
   { id: "withdrawals", label: "Withdrawals" },
   { id: "earn-yield", label: "Earn Yield" },
   { id: "swap", label: "Swap" },
+  { id: "private-mode", label: "Private mode" },
   { id: "fees", label: "Fees" },
 ] as const;
 
@@ -232,6 +233,39 @@ export default function DocsPage() {
               YieldStark charges an <strong className="text-gray-300">integrator fee</strong> on
               swaps (0.6%). This is in addition to any DEX or network fees shown on the swap
               interface.
+            </p>
+          </section>
+
+          <section id="private-mode" className="scroll-mt-6">
+            <h2 className="text-xl font-semibold text-white mb-3">Private mode</h2>
+            <p className="text-gray-400 leading-relaxed mb-4">
+              Private mode uses STRK20 through a Ready wallet (Wallet API 0.10.3+). YieldStark
+              never holds viewing keys. The wallet proves and submits.
+            </p>
+            <ul className="text-gray-400 space-y-2">
+              <li>
+                <strong className="text-gray-300">Shield / unshield</strong> — Public ERC-20
+                legs. Your address, token, and amount are visible at that edge. Deposits are
+                screened on-chain (FPI).
+              </li>
+              <li>
+                <strong className="text-gray-300">Private Vesu lend</strong> — vToken shares
+                land as notes. Identity is private. Amounts on the Vesu helper leg are public
+                (open notes). APY is the same as the public pool.
+              </li>
+              <li>
+                <strong className="text-gray-300">Private AVNU swap</strong> — Sell token must
+                already be shielded. Swap size is public; who swapped is not.
+              </li>
+            </ul>
+            <p className="text-gray-400 leading-relaxed mt-4">
+              Public mode keeps working if STRK20 is unavailable. Troves LP and Vesu borrows
+              stay public-only. See{" "}
+              <a href="/docs" className="text-[#97FCE4] hover:underline">
+                in-app docs
+              </a>{" "}
+              and the repo plan at{" "}
+              <code className="text-gray-300">docs/STRK20_PRIVACY_PLAN.md</code>.
             </p>
           </section>
 

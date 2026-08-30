@@ -1,5 +1,6 @@
 // Token approval utilities for DeFi interactions
-import { uint256, RpcProvider, CallData } from "starknet";
+import { uint256, CallData } from "starknet";
+import { createRpcProvider } from "~/lib/utils/rpcProvider";
 
 /**
  * Approve a spender to use tokens on behalf of the user
@@ -62,7 +63,7 @@ export async function checkAllowance(
   spenderAddress: string
 ): Promise<bigint> {
   try {
-    const provider = new RpcProvider({ nodeUrl: rpcUrl });
+    const provider = createRpcProvider(rpcUrl);
     
     const result = await provider.callContract({
       contractAddress: tokenAddress,

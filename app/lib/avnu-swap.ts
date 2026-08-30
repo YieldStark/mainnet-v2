@@ -3,8 +3,17 @@
  * Uses @avnu/avnu-sdk: getQuotes, executeSwap, fetchTokens.
  */
 
-import { getQuotes, executeSwap, fetchTokens } from '@avnu/avnu-sdk'
+import {
+  getQuotes,
+  executeSwap,
+  fetchTokens,
+  createStrk20WalletProver,
+  executePrivateSwap,
+  PRIVACY_POOL_ADDRESS,
+} from '@avnu/avnu-sdk'
 import type { Quote, Token } from '@avnu/avnu-sdk'
+import type { AccountInterface } from 'starknet'
+import { requireStrk20 } from '~/lib/services/strk20'
 
 const INTEGRATOR_FEE_BPS = 60n // 0.6%
 const INTEGRATOR_FEE_RECIPIENT =
@@ -43,7 +52,7 @@ export async function getSwapQuotes(params: {
 }
 
 export async function runSwap(params: {
-  provider: import('starknet').AccountInterface
+  provider: AccountInterface
   quote: Quote
   slippage?: number
 }): Promise<{ transactionHash: string }> {
@@ -58,4 +67,21 @@ export async function runSwap(params: {
   )
 }
 
-export { SLIPPAGE }
+export async function runPrivateSwap(params: {
+  account: unknown
+  quote: Quote
+  slippage?: number
+}): Promise<{ transactionHash: string }> {
+  const walletAccount = requireStrk20(params.account)
+  const prover = createStrk20WalletProver(walletAccount)
+  return executePrivateSwap({
+    quote: params.quote,
+    slippage: params.slippage ?? 0.01,
+    takerAddress: walletAccount.address,
+    poolAddress: PRIVACY_POOL_ADDRESS,
+    feeMode: { poolFeeToken: params.quote.sellTokenAddress },
+    prover,
+  })
+}
+
+export { SLIPPAGE, PRIVACY_POOL_ADDRESS }
