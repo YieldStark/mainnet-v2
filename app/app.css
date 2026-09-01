@@ -52,3 +52,8 @@ body {
 .layerswap-styles * {
   font-family: var(--font-neutral);
 }
+
+/* Wide-layout icon rail must stay in view — do not clip the widget. */
+.layerswap-styles {
+  overflow: visible;
+}

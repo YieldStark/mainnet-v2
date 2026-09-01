@@ -30,7 +30,7 @@ const YIELDSTARK_THEME: ThemeData = {
   tertiary: "107, 114, 128",
   borderRadius: "extraLarge",
   enablePortal: true,
-  enableWideVersion: false,
+  enableWideVersion: true,
   header: { hideMenu: true, hideTabs: true },
   cardBackgroundStyle: { backgroundColor: "transparent" },
   primary: {
@@ -201,7 +201,7 @@ export default function LayerswapBridgeWidget({
   }, [widgetProps]);
 
   return (
-    <div className="mx-auto w-full max-w-lg">
+    <div className="mx-auto w-full max-w-3xl">
       {loadError ? (
         <div className="rounded-2xl border border-red-500/30 bg-[#0F1A1F] p-6 text-sm text-gray-300">
           <p className="mb-2 font-medium text-white">Bridge failed to load</p>
@@ -228,7 +228,7 @@ export default function LayerswapBridgeWidget({
       )}
       <div
         ref={containerRef}
-        className={ready && !loadError ? undefined : "hidden"}
+        className={ready && !loadError ? "overflow-visible" : "hidden"}
       />
     </div>
   );
