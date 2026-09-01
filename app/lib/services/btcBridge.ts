@@ -5,7 +5,7 @@
  * the user signs on the source chain in the Layerswap widget and Layerswap
  * settles the transfer to the user's own address on the destination chain.
  *
- * Docs: https://docs.layerswap.io/integration/UI/Widget/Starknet/Starknet
+ * Docs: https://docs.layerswap.io/widget/quickstart
  */
 
 import { BRIDGE_CONFIG } from "../config";
@@ -53,16 +53,11 @@ export function getBridgeInitialValues(
   };
 }
 
-/**
- * WalletConnect project ID shipped with @layerswap/wallet-evm. Used when
- * VITE_WALLETCONNECT_PROJECT_ID is missing from the production build — an empty
- * projectId makes wagmi's WalletConnect connector throw and the widget shows
- * "Unable to complete the request".
- */
+/** Fallback if VITE_WALLETCONNECT_PROJECT_ID is missing from the production build. */
 const LAYERSWAP_FALLBACK_WALLETCONNECT_PROJECT_ID =
   "6113382c2e587bff00e2b5c3d68531f3";
 
-/** Shared WalletConnect config passed to Layerswap's EVM + Starknet wallet providers. */
+/** WalletConnect metadata passed to the CDN widget via `walletDefaults`. */
 export function getBridgeWalletConnectConfigs() {
   return {
     projectId:
