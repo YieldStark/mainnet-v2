@@ -98,6 +98,10 @@ export default function LayerswapBridgeWidget({
 
   const config = useMemo(
     () => ({
+      // Partner key is optional (used for dashboard tracking). If it's missing
+      // or empty in the Vercel build, omit it so the widget uses its built-in
+      // mainnet key — passing "" makes every Layerswap request throw
+      // "Api key is not provided" and the widget shows the red error modal.
       apiKey: BRIDGE_CONFIG.LAYERSWAP_API_KEY_MAINNET || undefined,
       version: "mainnet" as const,
       initialValues,

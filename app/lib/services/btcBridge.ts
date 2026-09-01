@@ -53,10 +53,21 @@ export function getBridgeInitialValues(
   };
 }
 
+/**
+ * WalletConnect project ID shipped with @layerswap/wallet-evm. Used when
+ * VITE_WALLETCONNECT_PROJECT_ID is missing from the production build — an empty
+ * projectId makes wagmi's WalletConnect connector throw and the widget shows
+ * "Unable to complete the request".
+ */
+const LAYERSWAP_FALLBACK_WALLETCONNECT_PROJECT_ID =
+  "6113382c2e587bff00e2b5c3d68531f3";
+
 /** Shared WalletConnect config passed to Layerswap's EVM + Starknet wallet providers. */
 export function getBridgeWalletConnectConfigs() {
   return {
-    projectId: BRIDGE_CONFIG.WALLETCONNECT_PROJECT_ID,
+    projectId:
+      BRIDGE_CONFIG.WALLETCONNECT_PROJECT_ID ||
+      LAYERSWAP_FALLBACK_WALLETCONNECT_PROJECT_ID,
     name: "YieldStark",
     description: "Non-custodial Bitcoin DeFi on Starknet",
     url: "https://yieldstark.com",
