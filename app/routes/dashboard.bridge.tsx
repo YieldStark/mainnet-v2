@@ -10,8 +10,7 @@ import {
   type LayerswapCompletedSwap,
 } from "~/lib/services/btcBridge";
 
-// Lazy-loaded so the Layerswap widget (EVM/Starknet wallet stack) is only
-// ever imported on the client, never pulled into the server module graph.
+// Client-only: the CDN widget mounts a separate React root into the DOM.
 const LayerswapBridgeWidget = lazy(() => import("~/components/bridge/LayerswapBridgeWidget"));
 
 const DIRECTIONS: { id: BridgeDirection; label: string; description: string }[] = [
@@ -102,7 +101,7 @@ export default function BridgePage() {
           </p>
         )}
 
-        <div className="rounded-2xl overflow-hidden">
+        <div className="rounded-2xl">
           <Suspense
             fallback={
               <div className="flex items-center justify-center py-16 text-gray-400">
@@ -111,7 +110,6 @@ export default function BridgePage() {
             }
           >
             <LayerswapBridgeWidget
-              key={direction}
               direction={direction}
               starknetAddress={isConnected ? vaultAddress ?? undefined : undefined}
               onSwapComplete={handleSwapComplete}

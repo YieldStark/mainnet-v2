@@ -5,7 +5,7 @@
  * the user signs on the source chain in the Layerswap widget and Layerswap
  * settles the transfer to the user's own address on the destination chain.
  *
- * Docs: https://docs.layerswap.io/integration/UI/Widget/Starknet/Starknet
+ * Docs: https://docs.layerswap.io/widget/quickstart
  */
 
 import { BRIDGE_CONFIG } from "../config";
@@ -53,10 +53,16 @@ export function getBridgeInitialValues(
   };
 }
 
-/** Shared WalletConnect config passed to Layerswap's EVM + Starknet wallet providers. */
+/** Fallback if VITE_WALLETCONNECT_PROJECT_ID is missing from the production build. */
+const LAYERSWAP_FALLBACK_WALLETCONNECT_PROJECT_ID =
+  "6113382c2e587bff00e2b5c3d68531f3";
+
+/** WalletConnect metadata passed to the CDN widget via `walletDefaults`. */
 export function getBridgeWalletConnectConfigs() {
   return {
-    projectId: BRIDGE_CONFIG.WALLETCONNECT_PROJECT_ID,
+    projectId:
+      BRIDGE_CONFIG.WALLETCONNECT_PROJECT_ID ||
+      LAYERSWAP_FALLBACK_WALLETCONNECT_PROJECT_ID,
     name: "YieldStark",
     description: "Non-custodial Bitcoin DeFi on Starknet",
     url: "https://yieldstark.com",
