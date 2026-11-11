@@ -1,8 +1,8 @@
 name: Deploy production
 
 # Production deploys go through this workflow so the database credentials live
-# in GitHub (Settings -> Secrets and variables -> Actions, environment
-# "production") instead of the Vercel dashboard. vercel.json turns off Vercel's
+# in GitHub (Settings -> Secrets and variables -> Actions -> Repository secrets)
+# instead of the Vercel dashboard. vercel.json turns off Vercel's
 # own auto-deploy for main so each push is deployed exactly once.
 #
 # Required secrets:
@@ -21,7 +21,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
