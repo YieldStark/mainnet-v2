@@ -61,6 +61,8 @@ jobs:
       - name: Smoke test database connection
         run: |
           echo "Deployed: $(tail -n1 deploy-url.txt)"
-          curl --fail --silent --show-error "https://${PRODUCTION_DOMAIN}/api/test-db"
+          # Retry a few times: the first request after a deploy can hit a cold
+          # database connection and return a transient 500.
+          curl --fail --silent --show-error             --retry 5 --retry-delay 10 --retry-all-errors             "https://${PRODUCTION_DOMAIN}/api/test-db"
         env:
           PRODUCTION_DOMAIN: ${{ vars.PRODUCTION_DOMAIN || 'app.yieldstark.xyz' }}
