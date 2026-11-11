@@ -8,6 +8,7 @@ name: Deploy production
 # Required secrets:
 #   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID   (Vercel account/project)
 #   DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_SSL   (Supabase pooler)
+#   VITE_LAYERSWAP_API_KEY_MAINNET, VITE_WALLETCONNECT_PROJECT_ID   (build-time, baked into the client bundle)
 
 on:
   push:
@@ -38,13 +39,15 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # Vercel builds remotely using the project's build-time settings (VITE_*).
-      # The --env flags set the run-time variables for this deployment, which is
-      # where the server-side database connection reads them.
+      # Vercel builds remotely. --build-env sets the VITE_* values Vite inlines
+      # into the client bundle; --env sets the run-time variables the server-side
+      # database connection reads.
       - name: Deploy to Vercel
         run: >
           npx vercel@latest deploy --prod --yes
           --token "${{ secrets.VERCEL_TOKEN }}"
+          --build-env "VITE_LAYERSWAP_API_KEY_MAINNET=${{ secrets.VITE_LAYERSWAP_API_KEY_MAINNET }}"
+          --build-env "VITE_WALLETCONNECT_PROJECT_ID=${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}"
           --env "DB_HOST=${{ secrets.DB_HOST }}"
           --env "DB_PORT=${{ secrets.DB_PORT }}"
           --env "DB_USER=${{ secrets.DB_USER }}"
