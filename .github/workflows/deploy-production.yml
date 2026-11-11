@@ -1,0 +1,61 @@
+name: Deploy production
+
+# Production deploys go through this workflow so the database credentials live
+# in GitHub (Settings -> Secrets and variables -> Actions, environment
+# "production") instead of the Vercel dashboard. vercel.json turns off Vercel's
+# own auto-deploy for main so each push is deployed exactly once.
+#
+# Required secrets:
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID   (Vercel account/project)
+#   DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_SSL   (Supabase pooler)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Vercel builds remotely using the project's build-time settings (VITE_*).
+      # The --env flags set the run-time variables for this deployment, which is
+      # where the server-side database connection reads them.
+      - name: Deploy to Vercel
+        run: >
+          npx vercel@latest deploy --prod --yes
+          --token "${{ secrets.VERCEL_TOKEN }}"
+          --env "DB_HOST=${{ secrets.DB_HOST }}"
+          --env "DB_PORT=${{ secrets.DB_PORT }}"
+          --env "DB_USER=${{ secrets.DB_USER }}"
+          --env "DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
+          --env "DB_NAME=${{ secrets.DB_NAME }}"
+          --env "DB_SSL=${{ secrets.DB_SSL }}"
+          | tee deploy-url.txt
+
+      - name: Smoke test database connection
+        run: |
+          URL=$(tail -n1 deploy-url.txt)
+          echo "Deployed: $URL"
+          curl --fail --silent --show-error "$URL/api/test-db"

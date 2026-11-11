@@ -12,3 +12,4 @@ public/build/
 !/temp/vtoken_addressses.txt
 .react-router/
 .local/
+.env.*.bak

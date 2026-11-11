@@ -16,7 +16,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       const days = parseInt(url.searchParams.get('days') || '30');
       const result = await query(
         `SELECT * FROM app_db.daily_volume_stats 
-         WHERE date >= CURRENT_DATE - $1 
+         WHERE date >= CURRENT_DATE - $1::int 
          ORDER BY date DESC`,
         [days]
       );
