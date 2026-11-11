@@ -53,8 +53,11 @@ jobs:
           --env "DB_SSL=${{ secrets.DB_SSL }}"
           | tee deploy-url.txt
 
+      # The *.vercel.app deployment URL sits behind Vercel Authentication, so the
+      # check goes through the public production domain instead.
       - name: Smoke test database connection
         run: |
-          URL=$(tail -n1 deploy-url.txt)
-          echo "Deployed: $URL"
-          curl --fail --silent --show-error "$URL/api/test-db"
+          echo "Deployed: $(tail -n1 deploy-url.txt)"
+          curl --fail --silent --show-error "https://${PRODUCTION_DOMAIN}/api/test-db"
+        env:
+          PRODUCTION_DOMAIN: ${{ vars.PRODUCTION_DOMAIN || 'app.yieldstark.xyz' }}
