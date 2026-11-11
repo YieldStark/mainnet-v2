@@ -8,7 +8,8 @@
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
     "db:migrate": "tsx database/migrate.ts",
-    "db:update-values": "tsx database/update-values.ts"
+    "db:update-values": "tsx database/update-values.ts",
+    "db:copy-from-source": "tsx database/copy-from-source.ts"
   },
   "dependencies": {
     "@avnu/avnu-sdk": "^4.2.0",
